@@ -1,1 +1,233 @@
 @import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Dark mode keys off a root `.dark` class (set by the theme engine),  */
+/* not the OS media query, so the toggle can force either theme.       */
+/* ------------------------------------------------------------------ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ */
+/* Semantic design tokens. Raw values live on :root (light) and .dark  */
+/* (dark); components reference them through the utilities registered  */
+/* in the @theme inline block below (bg-app, text-muted, border-line…) */
+/* ------------------------------------------------------------------ */
+:root {
+	color-scheme: light;
+
+	/* Surfaces */
+	--app: #f5f6f8;
+	--surface: #ffffff;
+	--surface-2: #f1f3f7;
+	--elevated: #ffffff;
+
+	/* Lines */
+	--line: rgba(15, 17, 23, 0.09);
+	--line-strong: rgba(15, 17, 23, 0.14);
+
+	/* Text */
+	--fg: #0f172a;
+	--muted: #475569;
+	--subtle: #64748b;
+
+	/* Brand */
+	--primary: #6366f1;
+	--primary-hover: #4f46e5;
+	--primary-soft: rgba(99, 102, 241, 0.12);
+	--on-primary: #ffffff;
+	--ring: rgba(99, 102, 241, 0.45);
+
+	/* Status */
+	--success: #059669;
+	--success-soft: rgba(5, 150, 105, 0.12);
+	--danger: #e11d48;
+	--danger-soft: rgba(225, 29, 72, 0.1);
+}
+
+.dark {
+	color-scheme: dark;
+
+	/* Surfaces */
+	--app: #0f1117;
+	--surface: #1a1d27;
+	--surface-2: #22263a;
+	--elevated: #1a1d27;
+
+	/* Lines */
+	--line: rgba(255, 255, 255, 0.06);
+	--line-strong: rgba(255, 255, 255, 0.11);
+
+	/* Text */
+	--fg: #f1f5f9;
+	--muted: #94a3b8;
+	--subtle: #64748b;
+
+	/* Brand */
+	--primary: #6366f1;
+	--primary-hover: #818cf8;
+	--primary-soft: rgba(99, 102, 241, 0.14);
+	--on-primary: #ffffff;
+	--ring: rgba(99, 102, 241, 0.5);
+
+	/* Status */
+	--success: #34d399;
+	--success-soft: rgba(52, 211, 153, 0.1);
+	--danger: #fb7185;
+	--danger-soft: rgba(251, 113, 133, 0.12);
+}
+
+/* Register tokens as Tailwind utilities. `inline` keeps them referencing
+   the live CSS vars, so `.dark` flips every utility at once. */
+@theme inline {
+	--color-app: var(--app);
+	--color-surface: var(--surface);
+	--color-surface-2: var(--surface-2);
+	--color-elevated: var(--elevated);
+
+	--color-line: var(--line);
+	--color-line-strong: var(--line-strong);
+
+	--color-fg: var(--fg);
+	--color-muted: var(--muted);
+	--color-subtle: var(--subtle);
+
+	--color-primary: var(--primary);
+	--color-primary-hover: var(--primary-hover);
+	--color-primary-soft: var(--primary-soft);
+	--color-on-primary: var(--on-primary);
+
+	--color-success: var(--success);
+	--color-success-soft: var(--success-soft);
+	--color-danger: var(--danger);
+	--color-danger-soft: var(--danger-soft);
+
+	/* Card accent bars — fixed across themes (thin decorative accents) */
+	--color-accent-blue: #3b82f6;
+	--color-accent-green: #10b981;
+	--color-accent-amber: #f59e0b;
+	--color-accent-rose: #f43f5e;
+	--color-accent-cyan: #06b6d4;
+	--color-accent-violet: #8b5cf6;
+}
+
+/* Base document paint so the app has correct colors before any screen
+   applies its own background. */
+html {
+	background-color: var(--app);
+}
+
+body {
+	background-color: var(--app);
+	color: var(--fg);
+}
+
+/* Shared focus-visible treatment for keyboard users */
+:where(a, button, input, [tabindex]):focus-visible {
+	outline: 2px solid var(--ring);
+	outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Board animations                                                   */
+/* ------------------------------------------------------------------ */
+@keyframes fadeIn {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+	from { opacity: 0; transform: translateY(16px) scale(0.98); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes pulseGlow {
+	0%, 100% { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); }
+	50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15); }
+}
+
+@keyframes shimmer {
+	0% { background-position: -200% 0; }
+	100% { background-position: 200% 0; }
+}
+
+@utility animate-fade-in {
+	animation: fadeIn 0.3s ease-out forwards;
+}
+
+@utility animate-slide-up {
+	animation: slideUp 0.25s ease-out forwards;
+}
+
+@utility animate-pulse-glow {
+	animation: pulseGlow 2s ease-in-out infinite;
+}
+
+@utility animate-shimmer {
+	background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+	background-size: 200% 100%;
+	animation: shimmer 2s infinite;
+}
+
+/* ------------------------------------------------------------------ */
+/* Global UI animations                                                */
+/* ------------------------------------------------------------------ */
+@keyframes pageEnter {
+	from { opacity: 0; transform: translateY(12px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastSlide {
+	from { opacity: 0; transform: translateX(100%); }
+	to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes scaleIn {
+	from { opacity: 0; transform: scale(0.95); }
+	to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes float {
+	0%, 100% { transform: translateY(0px); }
+	50% { transform: translateY(-10px); }
+}
+
+@keyframes gradientShift {
+	0% { background-position: 0% 50%; }
+	50% { background-position: 100% 50%; }
+	100% { background-position: 0% 50%; }
+}
+
+@utility animate-page-enter {
+	animation: pageEnter 0.4s ease-out forwards;
+}
+
+@utility animate-toast-slide {
+	animation: toastSlide 0.3s ease-out forwards;
+}
+
+@utility animate-scale-in {
+	animation: scaleIn 0.2s ease-out forwards;
+}
+
+@utility animate-float {
+	animation: float 3s ease-in-out infinite;
+}
+
+@utility animate-gradient {
+	background-size: 200% 200%;
+	animation: gradientShift 3s ease infinite;
+}
+
+/* Gradient text utility */
+@utility gradient-text {
+	background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+	-webkit-background-clip: text;
+	-webkit-text-fill-color: transparent;
+	background-clip: text;
+}
+
+/* Glass morphism */
+@utility glass {
+	background: rgba(26, 29, 39, 0.8);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+}

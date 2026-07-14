@@ -1,4 +1,5 @@
 import type { Card } from "../../types/board.types";
+import Modal from "../../components/Modal";
 
 interface Props {
 	card: Card;
@@ -18,20 +19,20 @@ const REASON_MESSAGES: Record<Props["reason"], string> = {
 
 export default function BlockedMoveModal({ card, reason, onDismiss }: Props) {
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-			<div className="w-full max-w-sm rounded-2xl bg-[#1a1d27] border border-white/10 p-5">
-				<h3 className="text-sm font-semibold text-slate-100 mb-1">
-					Can't move "{card.title}"
-				</h3>
-				<p className="text-xs text-slate-400 mb-4">{REASON_MESSAGES[reason]}</p>
+		<Modal titleId="blocked-move-title" onClose={onDismiss}>
+			<h3 id="blocked-move-title" className="text-sm font-semibold text-fg mb-1">
+				Can't move "{card.title}"
+			</h3>
+			<p className="text-xs text-muted mb-4">{REASON_MESSAGES[reason]}</p>
 
-				<button
-					type="button"
-					onClick={onDismiss}
-					className="w-full text-xs font-medium rounded-lg px-3 py-2 bg-indigo-500 text-white hover:bg-indigo-400">
-					Got it
-				</button>
-			</div>
-		</div>
+			<button
+				type="button"
+				data-autofocus
+				onClick={onDismiss}
+				className="w-full text-xs font-medium rounded-lg px-3 py-2 bg-primary text-on-primary hover:bg-primary-hover transition"
+			>
+				Got it
+			</button>
+		</Modal>
 	);
 }

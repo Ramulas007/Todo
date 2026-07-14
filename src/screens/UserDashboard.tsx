@@ -1,201 +1,122 @@
-import type { AppUser, DashboardWidget } from '../types/user.types'
-
-const activityBars = [
-	{ label: 'Mon', value: 42 },
-	{ label: 'Tue', value: 68 },
-	{ label: 'Wed', value: 55 },
-	{ label: 'Thu', value: 79 },
-	{ label: 'Fri', value: 64 },
-	{ label: 'Sat', value: 38 },
-	{ label: 'Sun', value: 22 },
-]
-
-const pipeline = [
-	{ label: 'Planning', value: 84, tone: 'bg-cyan-400' },
-	{ label: 'Execution', value: 72, tone: 'bg-emerald-400' },
-	{ label: 'Review', value: 58, tone: 'bg-amber-400' },
-	{ label: 'Blocked', value: 18, tone: 'bg-rose-400' },
-]
-
-const highlightCards = [
-	{ label: 'Velocity', value: '24 pts', detail: '+12% vs last week' },
-	{ label: 'SLA', value: '96%', detail: 'Average response time 1.8h' },
-	{ label: 'Focus', value: '4.6h', detail: 'Deep work hours per day' },
-	{ label: 'Completion', value: '83%', detail: 'Planned items done' },
-]
-
-function getWidgetSummary(widget: DashboardWidget) {
-	if (widget.type === 'stat') return widget.value
-	if (widget.type === 'project') return `${widget.progress}%`
-	if (widget.type === 'note') return widget.body.slice(0, 58)
-	return `${widget.entries.length} updates`
-}
-
-function getAccentClass(accent: AppUser['accent']) {
-	switch (accent) {
-		case 'amber':
-			return 'from-amber-400/25 to-amber-500/5 border-amber-400/20'
-		case 'emerald':
-			return 'from-emerald-400/25 to-emerald-500/5 border-emerald-400/20'
-		case 'rose':
-			return 'from-rose-400/25 to-rose-500/5 border-rose-400/20'
-		case 'violet':
-			return 'from-violet-400/25 to-violet-500/5 border-violet-400/20'
-		default:
-			return 'from-cyan-400/25 to-cyan-500/5 border-cyan-400/20'
-	}
-}
-
-function Sparkline({ accent }: { accent: AppUser['accent'] }) {
-	const stroke =
-		accent === 'amber'
-			? '#fbbf24'
-			: accent === 'emerald'
-				? '#34d399'
-				: accent === 'rose'
-					? '#fb7185'
-					: accent === 'violet'
-						? '#a78bfa'
-						: '#22d3ee'
-
-	return (
-		<svg viewBox="0 0 240 72" className="h-18 w-full">
-			<defs>
-				<linearGradient id="sparkFill" x1="0" x2="0" y1="0" y2="1">
-					<stop offset="0%" stopColor={stroke} stopOpacity="0.35" />
-					<stop offset="100%" stopColor={stroke} stopOpacity="0" />
-				</linearGradient>
-			</defs>
-			<path
-				d="M0 52 C20 46, 34 18, 56 26 S96 60, 120 40 S160 18, 184 30 S212 50, 240 22"
-				fill="none"
-				stroke={stroke}
-				strokeWidth="3"
-				strokeLinecap="round"
-			/>
-			<path
-				d="M0 52 C20 46, 34 18, 56 26 S96 60, 120 40 S160 18, 184 30 S212 50, 240 22 L240 72 L0 72 Z"
-				fill="url(#sparkFill)"
-			/>
-		</svg>
-	)
-}
+import { useStore } from '../store/useStore'
+import { useDashboardMetrics } from '../hooks/useDashboardMetrics'
 
 export default function UserDashboard({
 	user,
 	onLogout,
 	onOpenTodo,
 }: {
-	user: AppUser
+	user: { id: string; name: string; email: string; team: string; title: string; role: string; accent: string }
 	onLogout: () => void
 	onOpenTodo: () => void
 }) {
-	const accentClass = getAccentClass(user.accent)
+	const metrics = useDashboardMetrics()
+
+	const accentBorder = {
+		amber: 'border-l-amber-400/50',
+		emerald: 'border-l-emerald-400/50',
+		rose: 'border-l-rose-400/50',
+		violet: 'border-l-violet-400/50',
+		cyan: 'border-l-cyan-400/50',
+	}[user.accent] ?? 'border-l-cyan-400/50'
 
 	return (
 		<div className="min-h-screen bg-[#0f1117] text-slate-100">
-			<div className="border-b border-white/5 bg-white/2 backdrop-blur">
+			{/* Header */}
+			<div className="border-b border-white/5 bg-gradient-to-r from-[#1a1d27]/80 to-[#0f1117] backdrop-blur-xl">
 				<div className="mx-auto flex max-w-7xl flex-col gap-6 px-6 py-6 lg:flex-row lg:items-end lg:justify-between">
-					<div className="max-w-3xl">
-						<p className="text-xs uppercase tracking-[0.28em] text-slate-500">
-							User dashboard
-						</p>
-						<h1 className="mt-3 text-4xl font-semibold tracking-tight text-white md:text-5xl">
-							Welcome back, {user.name}
+					<div className="max-w-3xl animate-page-enter">
+						<p className="text-[10px] uppercase tracking-[0.25em] text-slate-500 font-medium">Dashboard</p>
+						<h1 className="mt-2 text-3xl font-semibold tracking-tight text-white md:text-4xl">
+							Welcome back, <span className="gradient-text">{user.name}</span>
 						</h1>
-						<p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 md:text-base">
-							A live overview of your workload, momentum, and current focus. Open the
-							todo view when you want to jump back into tasks.
+						<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+							Your workload overview at a glance. Jump into the board when you're ready.
 						</p>
 					</div>
 					<div className="flex items-center gap-3">
-						<button
-							type="button"
-							onClick={onOpenTodo}
-							className="group rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-5 py-3 text-sm font-semibold text-cyan-100 transition hover:-translate-y-0.5 hover:bg-cyan-400/15"
+						<button type="button" onClick={onOpenTodo}
+							className="group rounded-xl bg-indigo-500 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-indigo-400 hover:shadow-lg hover:shadow-indigo-500/25 flex items-center gap-2"
 						>
-							Todo
-							<span className="ml-2 inline-block transition group-hover:translate-x-0.5">→</span>
+							Open Board <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
 						</button>
-						<button
-							type="button"
-							onClick={onLogout}
-							className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/10"
-						>
-							Log out
-						</button>
+						<button type="button" onClick={onLogout}
+							className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-medium text-slate-300 transition-all duration-200 hover:border-white/20 hover:bg-white/10 hover:text-white"
+						>Log out</button>
 					</div>
 				</div>
 			</div>
 
 			<div className="mx-auto grid max-w-7xl gap-6 px-6 py-8 xl:grid-cols-[1.25fr_0.95fr]">
 				<div className="space-y-6">
+					{/* Stats */}
 					<section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-						{highlightCards.map((card, index) => (
-							<div
-								key={card.label}
-								className={`rounded-3xl border bg-[#151924] p-5 shadow-xl shadow-black/20 ${accentClass}`}
-								style={{ animationDelay: `${index * 90}ms` }}
+						{[
+							{ label: 'Completed', value: `${metrics.velocity}`, detail: `Last 7 days · ${metrics.velocityDelta >= 0 ? '+' : ''}${metrics.velocityDelta}% vs prior`, icon: '📈' },
+							{ label: 'On-time', value: `${metrics.onTimeRate}%`, detail: `Avg ${metrics.avgTimeToComplete} to complete`, icon: '⏱️' },
+							{ label: 'In Progress', value: `${metrics.inProgressCards}`, detail: `of ${metrics.totalCards} total cards`, icon: '⚡' },
+							{ label: 'Completion', value: `${metrics.completionRate}%`, detail: `${metrics.doneCards} of ${metrics.totalCards} cards done`, icon: '✅' },
+						].map((card, index) => (
+							<div key={card.label}
+								className={`rounded-2xl border border-l-[3px] ${accentBorder} bg-[#151924] p-5 shadow-lg shadow-black/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl animate-fade-in`}
+								style={{ animationDelay: `${index * 80}ms` }}
 							>
-								<p className="text-xs uppercase tracking-[0.24em] text-slate-500">
-									{card.label}
-								</p>
-								<div className="mt-4 text-3xl font-semibold text-white">{card.value}</div>
-								<p className="mt-2 text-sm text-slate-400">{card.detail}</p>
+								<div className="flex items-center justify-between mb-3">
+									<p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-medium">{card.label}</p>
+									<span className="text-lg">{card.icon}</span>
+								</div>
+								<div className="text-2xl font-bold text-white">{metrics.isEmpty ? '—' : card.value}</div>
+								<p className="mt-1.5 text-xs text-slate-400">{metrics.isEmpty ? 'No data yet' : card.detail}</p>
 							</div>
 						))}
 					</section>
 
+					{/* Charts */}
 					<section className="grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-						<div className="rounded-3xl border border-white/5 bg-[#151924] p-6 shadow-xl shadow-black/20">
+						<div className="rounded-2xl border border-white/5 bg-[#151924] p-6 shadow-lg shadow-black/20">
 							<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
 								<div>
-									<p className="text-xs uppercase tracking-[0.24em] text-slate-500">
-										Weekly activity
-									</p>
-									<h2 className="mt-2 text-2xl font-semibold text-white">
-										Momentum at a glance
-									</h2>
+									<p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-medium">Weekly activity</p>
+									<h2 className="mt-2 text-xl font-semibold text-white">Your momentum</h2>
 								</div>
-								<div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-300">
-									Peak focus 79%
+								<div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-xs font-medium text-emerald-400">
+									Peak {Math.max(...metrics.weeklyActivity.map(d => d.value), 0)}
 								</div>
 							</div>
-
-							<div className="mt-6 grid h-60 grid-cols-7 items-end gap-3">
-								{activityBars.map((item) => (
-									<div key={item.label} className="flex h-full flex-col justify-end gap-3">
+							<div className="mt-6 grid h-48 grid-cols-7 items-end gap-2">
+								{metrics.weeklyActivity.map((item) => (
+									<div key={item.label} className="flex h-full flex-col justify-end gap-2">
 										<div className="flex flex-1 items-end">
-											<div
-												className="w-full rounded-t-2xl bg-linear-to-t from-cyan-500/20 to-cyan-300/80 shadow-[0_0_30px_rgba(34,211,238,0.18)]"
-												style={{ height: `${item.value}%` }}
+											<div className="w-full rounded-t-lg bg-gradient-to-t from-indigo-600/40 to-indigo-400/80 transition-all duration-500 hover:from-indigo-600/60 hover:to-indigo-400"
+												style={{ height: metrics.isEmpty ? '5%' : `${Math.max((item.value / Math.max(...metrics.weeklyActivity.map(d => d.value), 1)) * 100, 5)}%` }}
 											/>
 										</div>
-										<p className="text-center text-xs text-slate-500">{item.label}</p>
+										<p className="text-center text-[10px] text-slate-500">{item.label}</p>
 									</div>
 								))}
 							</div>
-
 							<div className="mt-6 grid gap-4 md:grid-cols-2">
-								<div className="rounded-2xl border border-white/5 bg-black/20 p-4">
-									<p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-										Trend line
-									</p>
-									<Sparkline accent={user.accent} />
+								<div className="rounded-xl border border-white/5 bg-black/20 p-4">
+									<p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-medium">Trend (14 days)</p>
+									<div className="mt-2 flex items-end gap-0.5 h-8">
+										{metrics.trendLine.map((v, i) => (
+											<div key={i} className="flex-1 rounded-t bg-indigo-400/60 transition-all duration-300"
+												style={{ height: `${Math.max((v / Math.max(...metrics.trendLine, 1)) * 100, 8)}%` }}
+											/>
+										))}
+									</div>
 								</div>
-								<div className="rounded-2xl border border-white/5 bg-black/20 p-4">
-									<p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-										Pipeline health
-									</p>
-									<div className="mt-4 space-y-4">
-										{pipeline.map((item) => (
+								<div className="rounded-xl border border-white/5 bg-black/20 p-4">
+									<p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-medium">Pipeline health</p>
+									<div className="mt-3 space-y-3">
+										{metrics.pipelineHealth.map((item) => (
 											<div key={item.label}>
-												<div className="mb-2 flex items-center justify-between text-sm">
+												<div className="mb-1 flex items-center justify-between text-xs">
 													<span className="text-slate-300">{item.label}</span>
 													<span className="text-slate-500">{item.value}%</span>
 												</div>
-												<div className="h-2 rounded-full bg-white/8">
-													<div className={`h-2 rounded-full ${item.tone}`} style={{ width: `${item.value}%` }} />
+												<div className="h-1.5 rounded-full bg-white/5">
+													<div className={`h-1.5 rounded-full ${item.tone} transition-all duration-500`} style={{ width: `${item.value}%` }} />
 												</div>
 											</div>
 										))}
@@ -204,109 +125,72 @@ export default function UserDashboard({
 							</div>
 						</div>
 
-						<div className="rounded-3xl border border-white/5 bg-[#151924] p-6 shadow-xl shadow-black/20">
-							<p className="text-xs uppercase tracking-[0.24em] text-slate-500">
-								Personal dashboard
-							</p>
-							<h2 className="mt-2 text-2xl font-semibold text-white">
-								Your live snapshot
-							</h2>
-							<div className="mt-5 rounded-3xl border border-white/5 bg-linear-to-br from-white/8 to-white/3 p-5">
-								<div className="flex items-center justify-between gap-4">
-									<div>
-										<p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-											Current status
-										</p>
-										<h3 className="mt-2 text-xl font-semibold text-white">{user.title}</h3>
-									</div>
-									<div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-right">
-										<p className="text-xs uppercase tracking-[0.22em] text-slate-500">Accent</p>
-										<p className="mt-1 text-sm font-medium capitalize text-white">{user.accent}</p>
-									</div>
+						{/* Profile */}
+						<div className="rounded-2xl border border-white/5 bg-[#151924] p-6 shadow-lg shadow-black/20">
+							<p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-medium">Profile</p>
+							<div className="mt-4 flex items-center gap-4">
+								<div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-lg font-bold text-white shadow-lg shadow-indigo-500/20">
+									{user.name.split(' ').map((n: string) => n[0]).join('')}
 								</div>
-								<div className="mt-6 grid gap-4 sm:grid-cols-2">
-									<div className="rounded-2xl border border-white/5 bg-black/20 p-4">
-										<p className="text-xs uppercase tracking-[0.2em] text-slate-500">Email</p>
-										<p className="mt-2 text-sm font-medium text-white">{user.email}</p>
-									</div>
-									<div className="rounded-2xl border border-white/5 bg-black/20 p-4">
-										<p className="text-xs uppercase tracking-[0.2em] text-slate-500">Team</p>
-										<p className="mt-2 text-sm font-medium text-white">{user.team}</p>
-									</div>
+								<div>
+									<h2 className="text-lg font-semibold text-white">{user.name}</h2>
+									<p className="text-xs text-slate-400 capitalize">{user.role}</p>
+								</div>
+							</div>
+							<div className="mt-5 space-y-3">
+								<div className="rounded-xl bg-black/20 p-3">
+									<p className="text-[10px] text-slate-500 uppercase tracking-wider">Email</p>
+									<p className="mt-1 text-sm text-white">{user.email}</p>
+								</div>
+								<div className="rounded-xl bg-black/20 p-3">
+									<p className="text-[10px] text-slate-500 uppercase tracking-wider">Team</p>
+									<p className="mt-1 text-sm text-white">{user.team}</p>
+								</div>
+								<div className="rounded-xl bg-black/20 p-3">
+									<p className="text-[10px] text-slate-500 uppercase tracking-wider">Title</p>
+									<p className="mt-1 text-sm text-white">{user.title}</p>
 								</div>
 							</div>
 						</div>
-					</section>
-
-					<section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-						{user.widgets.map((widget, index) => (
-							<div
-								key={widget.id}
-								className="rounded-2xl border border-white/5 bg-[#151924] p-5 shadow-lg shadow-black/20"
-								style={{ animationDelay: `${index * 70}ms` }}
-							>
-								<p className="text-xs uppercase tracking-[0.22em] text-slate-500">{widget.type}</p>
-								<h3 className="mt-2 text-base font-semibold text-white">
-									{widget.type === 'stat'
-										? widget.label
-										: widget.type === 'project'
-											? widget.title
-											: widget.type === 'note'
-												? widget.title
-												: widget.title}
-								</h3>
-								<p className="mt-3 text-sm leading-6 text-slate-400">{getWidgetSummary(widget)}</p>
-							</div>
-						))}
 					</section>
 				</div>
 
+				{/* Sidebar */}
 				<aside className="space-y-6">
-					<section className="rounded-3xl border border-white/5 bg-[#151924] p-5 shadow-xl shadow-black/20">
-						<div className="flex items-center justify-between gap-4">
-							<div>
-								<p className="text-xs uppercase tracking-[0.24em] text-slate-500">
-									Profile
+					<section className="rounded-2xl border border-white/5 bg-[#151924] p-5 shadow-lg shadow-black/20">
+						<p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-medium">Quick actions</p>
+						<div className="mt-4 space-y-3">
+							<button type="button" onClick={onOpenTodo}
+								className="w-full flex items-center justify-between rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-4 py-3 text-left text-sm font-medium text-indigo-300 transition-all duration-200 hover:bg-indigo-500/15 hover:-translate-y-0.5"
+							>
+								<span>Open todo board</span>
+								<span className="text-indigo-400">→</span>
+							</button>
+							<div className="rounded-xl border border-white/5 bg-black/20 p-4">
+								<p className="text-[10px] text-slate-500 uppercase tracking-wider">Today's focus</p>
+								<p className="mt-2 text-sm text-slate-300 leading-relaxed">
+									{metrics.isEmpty ? 'Create your first card to get started.' : metrics.quickActionTip}
 								</p>
-								<h2 className="mt-2 text-2xl font-semibold text-white">{user.name}</h2>
-							</div>
-							<div className="h-12 w-12 rounded-2xl border border-white/10 bg-white/5" />
-						</div>
-						<div className="mt-5 space-y-4 text-sm text-slate-300">
-							<div>
-								<p className="text-slate-500">Role</p>
-								<p className="mt-1 capitalize text-white">{user.role}</p>
-							</div>
-							<div>
-								<p className="text-slate-500">Email</p>
-								<p className="mt-1 text-white">{user.email}</p>
-							</div>
-							<div>
-								<p className="text-slate-500">Team</p>
-								<p className="mt-1 text-white">{user.team}</p>
 							</div>
 						</div>
 					</section>
 
-					<section className="rounded-3xl border border-white/5 bg-[#151924] p-5 shadow-xl shadow-black/20">
-						<p className="text-xs uppercase tracking-[0.24em] text-slate-500">
-							Quick actions
-						</p>
+					<section className="rounded-2xl border border-white/5 bg-[#151924] p-5 shadow-lg shadow-black/20">
+						<p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-medium">Recent activity</p>
 						<div className="mt-4 space-y-3">
-							<button
-								type="button"
-								onClick={onOpenTodo}
-								className="flex w-full items-center justify-between rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-left text-sm font-medium text-cyan-100 transition hover:bg-cyan-400/15"
-							>
-								<span>Open todo board</span>
-								<span>→</span>
-							</button>
-							<div className="rounded-2xl border border-white/5 bg-black/20 p-4 text-sm text-slate-300">
-								<p className="text-slate-500">Today</p>
-								<p className="mt-2 leading-6">
-									Focus on the highest value cards before switching to the board.
-								</p>
-							</div>
+							{metrics.recentActivity.length === 0 ? (
+								<p className="text-xs text-slate-500 text-center py-4">No activity yet</p>
+							) : (
+								metrics.recentActivity.map((activity, i) => (
+									<div key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/3 transition-colors">
+										<span className={`mt-1.5 w-2 h-2 rounded-full ${activity.color} shrink-0`} />
+										<div className="flex-1 min-w-0">
+											<p className="text-xs text-slate-300 truncate">{activity.text}</p>
+											<p className="text-[10px] text-slate-500 mt-0.5">{activity.time}</p>
+										</div>
+									</div>
+								))
+							)}
 						</div>
 					</section>
 				</aside>

@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import List from "./List";
-import useBoardState from "../../hooks/useBoardState";
-import useDistributeEffects from "../../hooks/useDistributeEffects";
-import { mockBoard } from "../../data/mockData";
+import { useStore } from "../../store/useStore";
 import useCardMoveGuard from "../../hooks/useCardMoveGuard";
 import ConfirmMoveModal from "./confirmMoveModal";
 import TaskCompletionModal from "./taskCompletionModal";
 import BlockedMoveModal from "./blockedMoveModal";
 
 export default function Board() {
-	const { cards, completeTask } = useBoardState();
-	const [lists, moveCard] = useDistributeEffects(mockBoard.lists, cards);
+	const board = useStore((s) => s.getBoard());
+	const completeTask = useStore((s) => s.completeTask);
+	const moveCard = useStore((s) => s.moveCard);
 
 	const {
 		handleDragEnd,
@@ -23,24 +22,32 @@ export default function Board() {
 		cancelBacklogMove,
 		blockedMove,
 		dismissBlockedMove,
-	} = useCardMoveGuard(lists, cards, moveCard);
+	} = useCardMoveGuard(board, moveCard);
 
 	// First card of "To Do" is open by default
 	const [openCardId, setOpenCardId] = useState<string | number | null>(
-		mockBoard.lists.find((l) => l.id === "list-1")?.cardIds[0] ?? null,
+		board?.lists.find((l) => l.id === "list-1")?.cardIds[0] ?? null,
 	);
 
 	function toggleCard(cardId: string | number) {
 		setOpenCardId((prev) => (prev === cardId ? null : cardId));
 	}
 
+	if (!board) {
+		return (
+			<div className="flex items-center justify-center py-20 text-slate-500">
+				Loading board...
+			</div>
+		);
+	}
+
 	return (
 		<>
 			<DragDropProvider onDragEnd={handleDragEnd}>
-				<div className="flex gap-4 overflow-x-auto items-start pb-6 px-8 py-10">
-					{lists.map((list) => {
+				<div className="flex gap-5 overflow-x-auto items-start pb-6 px-6 py-8">
+					{board.lists.map((list) => {
 						const listCards = list.cardIds
-							.map((id) => cards[id])
+							.map((id) => board.cards[id])
 							.filter(Boolean)
 							.sort((a, b) => a.position - b.position);
 
@@ -56,7 +63,6 @@ export default function Board() {
 								list={list}
 								cards={listCards}
 								totalDone={totalDone}
-								onCompleteTask={completeTask}
 								openCardId={openCardId}
 								onToggleCard={toggleCard}
 							/>
@@ -65,27 +71,27 @@ export default function Board() {
 				</div>
 			</DragDropProvider>
 
-			{pendingCompletion && cards[pendingCompletion.cardId] && (
+			{pendingCompletion && board.cards[pendingCompletion.cardId] && (
 				<TaskCompletionModal
-					card={cards[pendingCompletion.cardId]}
+					card={board.cards[pendingCompletion.cardId]}
 					onCompleteTask={completeTask}
 					onCancel={cancelCompletion}
 					onConfirm={confirmCompletion}
 				/>
 			)}
 
-			{pendingConfirm && cards[pendingConfirm.cardId] && (
+			{pendingConfirm && board.cards[pendingConfirm.cardId] && (
 				<ConfirmMoveModal
-					card={cards[pendingConfirm.cardId]}
+					card={board.cards[pendingConfirm.cardId]}
 					message="Move this card to Backlog? It hasn't been finished."
 					onCancel={cancelBacklogMove}
 					onConfirm={confirmBacklogMove}
 				/>
 			)}
 
-			{blockedMove && cards[blockedMove.cardId] && (
+			{blockedMove && board.cards[blockedMove.cardId] && (
 				<BlockedMoveModal
-					card={cards[blockedMove.cardId]}
+					card={board.cards[blockedMove.cardId]}
 					reason={blockedMove.reason}
 					onDismiss={dismissBlockedMove}
 				/>

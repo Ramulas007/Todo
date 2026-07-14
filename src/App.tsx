@@ -1,166 +1,125 @@
 import { useEffect, useState } from 'react'
-import './output.css'
-import AdminPanel from './screens/AdminPanel'
+import { useStore } from './store/useStore'
 import Login from './screens/Login'
+import AdminPanel from './screens/AdminPanel'
 import Workspace from './screens/workSpace'
 import UserDashboard from './screens/UserDashboard'
-import { authenticateUser, seedUsers } from './data/mockUsers'
-import type { AppUser } from './types/user.types'
-
-const USERS_STORAGE_KEY = 'workelo-users'
-const SESSION_STORAGE_KEY = 'workelo-session-user-id'
 
 type AppRoute = 'login' | 'admin' | 'dashboard' | 'todo'
 
 function getRouteFromPath(pathname: string): AppRoute {
-  if (pathname.startsWith('/admin')) {
-    return 'admin'
-  }
-
-  if (pathname.startsWith('/todo')) {
-    return 'todo'
-  }
-
-  if (pathname.startsWith('/dashboard')) {
-    return 'dashboard'
-  }
-
-  return 'login'
+	if (pathname.startsWith('/admin')) return 'admin'
+	if (pathname.startsWith('/todo')) return 'todo'
+	if (pathname.startsWith('/dashboard')) return 'dashboard'
+	return 'login'
 }
 
 function routeToPath(route: AppRoute) {
-  switch (route) {
-    case 'admin':
-      return '/admin'
-    case 'dashboard':
-      return '/dashboard'
-    case 'todo':
-      return '/todo'
-    default:
-      return '/login'
-  }
-}
-
-function loadUsers(): AppUser[] {
-  const storedUsers = localStorage.getItem(USERS_STORAGE_KEY)
-
-  if (!storedUsers) {
-    return seedUsers
-  }
-
-  try {
-    const parsedUsers = JSON.parse(storedUsers) as AppUser[]
-    return Array.isArray(parsedUsers) && parsedUsers.length ? parsedUsers : seedUsers
-  } catch {
-    return seedUsers
-  }
-}
-
-function loadSessionUserId() {
-  return localStorage.getItem(SESSION_STORAGE_KEY)
+	switch (route) {
+		case 'admin': return '/admin'
+		case 'dashboard': return '/dashboard'
+		case 'todo': return '/todo'
+		default: return '/login'
+	}
 }
 
 export default function App() {
-  const [users, setUsers] = useState<AppUser[]>(loadUsers)
-  const [sessionUserId, setSessionUserId] = useState<string | null>(loadSessionUserId)
-  const [route, setRoute] = useState<AppRoute>(() => getRouteFromPath(window.location.pathname))
+	const currentUser = useStore((s) => s.currentUser)
+	const users = useStore((s) => s.users)
+	const login = useStore((s) => s.login)
+	const logout = useStore((s) => s.logout)
+	const updateUser = useStore((s) => s.updateUser)
+	const addUser = useStore((s) => s.addUser)
+	const removeUser = useStore((s) => s.removeUser)
 
-  useEffect(() => {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users))
-  }, [users])
+	const [route, setRoute] = useState<AppRoute>(() => getRouteFromPath(window.location.pathname))
 
-  useEffect(() => {
-    if (sessionUserId) {
-      localStorage.setItem(SESSION_STORAGE_KEY, sessionUserId)
-    } else {
-      localStorage.removeItem(SESSION_STORAGE_KEY)
-    }
-  }, [sessionUserId])
+	useEffect(() => {
+		function handlePopState() {
+			setRoute(getRouteFromPath(window.location.pathname))
+		}
+		window.addEventListener('popstate', handlePopState)
+		return () => window.removeEventListener('popstate', handlePopState)
+	}, [])
 
-  useEffect(() => {
-    function handlePopState() {
-      setRoute(getRouteFromPath(window.location.pathname))
-    }
+	function navigate(r: AppRoute) {
+		window.history.pushState({}, '', routeToPath(r))
+		setRoute(r)
+	}
 
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [])
+	function handleLogin(email: string, password: string) {
+		const success = login(email, password)
+		if (success) {
+			const user = useStore.getState().currentUser
+			const nextRoute = user?.role === 'admin' ? 'admin' : 'dashboard'
+			navigate(nextRoute)
+		}
+		return success
+	}
 
-  function handleLogin(email: string, password: string) {
-    const authenticatedUser = authenticateUser(users, email, password)
+	function handleLogout() {
+		logout()
+		navigate('login')
+	}
 
-    if (authenticatedUser) {
-      setSessionUserId(authenticatedUser.id)
-      const nextRoute = authenticatedUser.role === 'admin' ? 'admin' : 'dashboard'
-      window.history.pushState({}, '', routeToPath(nextRoute))
-      setRoute(nextRoute)
-    }
-  }
+	function handleOpenTodo() {
+		navigate('todo')
+	}
 
-  function handleLogout() {
-    setSessionUserId(null)
-    window.history.pushState({}, '', routeToPath('login'))
-    setRoute('login')
-  }
+	function handleBackToDashboard() {
+		navigate('dashboard')
+	}
 
-  function handleUsersChange(nextUsers: AppUser[]) {
-    setUsers(nextUsers)
+	// Redirect if not logged in
+	useEffect(() => {
+		if (!currentUser && route !== 'login') {
+			navigate('login')
+		}
+		if (currentUser && route === 'login') {
+			const nextRoute = currentUser.role === 'admin' ? 'admin' : 'dashboard'
+			navigate(nextRoute)
+		}
+	}, [currentUser, route])
 
-    if (sessionUserId && !nextUsers.some((user) => user.id === sessionUserId)) {
-      setSessionUserId(null)
-    }
-  }
+	if (!currentUser) {
+		return <Login onLogin={handleLogin} />
+	}
 
-  const activeUser = sessionUserId
-    ? users.find((user) => user.id === sessionUserId) ?? null
-    : null
+	if (route === 'admin' && currentUser.role === 'admin') {
+		return (
+			<AdminPanel
+				adminUser={currentUser}
+				users={users}
+				onUsersChange={(nextUsers) => {
+					nextUsers.forEach((u) => {
+						const existing = users.find((eu) => eu.id === u.id)
+						if (existing) {
+							updateUser(u.id, u)
+						} else {
+							addUser(u)
+						}
+					})
+					// Remove users not in the new list
+					users.forEach((u) => {
+						if (!nextUsers.find((nu) => nu.id === u.id)) {
+							removeUser(u.id)
+						}
+					})
+				}}
+				onLogout={handleLogout}
+			/>
+		)
+	}
 
-  function handleOpenTodo() {
-    window.history.pushState({}, '', routeToPath('todo'))
-    setRoute('todo')
-  }
+	if (route === 'todo') {
+		return <Workspace onBackToDashboard={handleBackToDashboard} />
+	}
 
-  function handleBackToDashboard() {
-    window.history.pushState({}, '', routeToPath('dashboard'))
-    setRoute('dashboard')
-  }
-
-  useEffect(() => {
-    if (!activeUser) {
-      if (route !== 'login') {
-        window.history.replaceState({}, '', routeToPath('login'))
-        setRoute('login')
-      }
-
-      return
-    }
-
-    if (route === 'login') {
-      window.history.replaceState({}, '', routeToPath('dashboard'))
-      setRoute('dashboard')
-    }
-  }, [activeUser, route])
-
-  return (
-    <div>
-      {!activeUser ? (
-        <Login users={users} onLogin={handleLogin} />
-      ) : route === 'admin' ? (
-        <AdminPanel
-          adminUser={activeUser}
-          users={users}
-          onUsersChange={handleUsersChange}
-          onLogout={handleLogout}
-        />
-      ) : route === 'todo' ? (
-        <Workspace onBackToDashboard={handleBackToDashboard} />
-      ) : (
-        <UserDashboard
-          user={activeUser}
-          onLogout={handleLogout}
-          onOpenTodo={handleOpenTodo}
-        />
-      )}
-    </div>
-  )
+	return (
+		<UserDashboard
+			user={currentUser}
+			onLogout={handleLogout}
+			onOpenTodo={handleOpenTodo}
+		/>
+	)
 }
