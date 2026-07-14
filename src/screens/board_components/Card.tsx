@@ -7,6 +7,7 @@ interface Props {
 	card: Card;
 	isOpen: boolean;
 	onToggle: () => void;
+	onEdit?: () => void;
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -23,7 +24,7 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string
 	urgent: { label: "Urgent", color: "text-rose-400", bg: "bg-rose-500/15" },
 };
 
-export default function CardItem({ card, isOpen, onToggle }: Props) {
+export default function CardItem({ card, isOpen, onToggle, onEdit }: Props) {
 	const completeTask = useStore((s) => s.completeTask);
 	const total = card.tasks.length;
 	const done = card.tasks.filter((t) => t.isCompleted).length;
@@ -41,8 +42,8 @@ export default function CardItem({ card, isOpen, onToggle }: Props) {
 	return (
 		<div
 			ref={ref}
-			className={`rounded-xl bg-[#22263a] border-l-[3px] overflow-hidden
-				transition-all duration-200 
+			className={`group rounded-xl bg-[#22263a] border-l-[3px] overflow-hidden
+				transition-all duration-200
 				${isDragging ? "opacity-50 shadow-xl" : ""}
 				${isOpen
 					? "border-indigo-500/60 shadow-lg shadow-indigo-500/10"
@@ -104,6 +105,20 @@ export default function CardItem({ card, isOpen, onToggle }: Props) {
 				<p className={`text-xs text-slate-400 leading-relaxed ${isOpen ? "" : "line-clamp-2"}`}>
 					{card.description}
 				</p>
+
+				{/* Edit button - visible on hover */}
+				{onEdit && (
+					<button
+						type="button"
+						onClick={(e) => { e.stopPropagation(); onEdit(); }}
+						className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-600 hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100"
+					>
+						<svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+							<path d="M8.5 1.5l2 2-7 7H1.5v-2l7-7z" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/>
+						</svg>
+						Edit details
+					</button>
+				)}
 			</button>
 
 			{/* Tasks — expanded */}
