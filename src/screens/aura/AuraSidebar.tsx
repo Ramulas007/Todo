@@ -30,6 +30,15 @@ export default function AuraSidebar() {
 
 	const completedCount = allCards.filter((c) => !!c.completedAt).length;
 
+	// Count due/overdue cards for Today badge
+	const todayDate = new Date();
+	todayDate.setHours(0, 0, 0, 0);
+	const todayCount = allCards.filter((c) => {
+		if (c.completedAt) return false;
+		if (!c.dueDate) return false;
+		return new Date(c.dueDate) <= todayDate;
+	}).length;
+
 	// Count cards per project
 	function countByProject(projectId: string) {
 		return allCards.filter((c) => !c.completedAt && c.tags?.includes(projectId)).length;
@@ -78,6 +87,9 @@ export default function AuraSidebar() {
 						)}
 						{item.id === "history" && completedCount > 0 && (
 							<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{completedCount}</span>
+						)}
+						{item.id === "today" && todayCount > 0 && (
+							<span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400">{todayCount}</span>
 						)}
 					</button>
 				))}

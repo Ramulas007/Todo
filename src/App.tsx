@@ -10,6 +10,7 @@ import CalendarView from './screens/CalendarView'
 import TodayView from './screens/TodayView'
 import FocusView from './screens/FocusView'
 import QuickCapture from './screens/board_components/QuickCapture'
+import SearchPalette from './components/SearchPalette'
 import FeaturesPage from './screens/FeaturesPage'
 import PricingPage from './screens/PricingPage'
 import AboutPage from './screens/AboutPage'
@@ -59,6 +60,7 @@ export default function App() {
 
 	const [route, setRoute] = useState<AppRoute>(() => getRouteFromPath(window.location.pathname))
 	const [showQuickCapture, setShowQuickCapture] = useState(false)
+	const [showSearch, setShowSearch] = useState(false)
 	const pomodoro = usePomodoro()
 
 	useEffect(() => {
@@ -76,6 +78,12 @@ export default function App() {
 				e.preventDefault()
 				if (currentUser && route !== 'login' && route !== 'home' && route !== 'loginnew') {
 					setShowQuickCapture(true)
+				}
+			}
+			if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+				e.preventDefault()
+				if (currentUser && route !== 'login' && route !== 'home') {
+					setShowSearch(true)
 				}
 			}
 		}
@@ -123,6 +131,11 @@ export default function App() {
 
 	function handleBackToBoard() {
 		navigate('todo')
+	}
+
+	function handleOpenCardFromSearch(cardId: string) {
+		useStore.getState().openPanel(cardId)
+		if (route !== 'todo') navigate('todo')
 	}
 
 	// Redirect if not logged in (except home and login)
@@ -191,6 +204,7 @@ export default function App() {
 			<>
 				<CalendarView onBackToBoard={handleBackToBoard} />
 				{showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+				{showSearch && <SearchPalette onClose={() => setShowSearch(false)} onOpenCard={handleOpenCardFromSearch} />}
 			</>
 		)
 	}
@@ -200,12 +214,18 @@ export default function App() {
 			<>
 				<TodayView onBackToBoard={handleBackToBoard} />
 				{showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+				{showSearch && <SearchPalette onClose={() => setShowSearch(false)} onOpenCard={handleOpenCardFromSearch} />}
 			</>
 		)
 	}
 
 	if (route === 'focus') {
-		return <FocusView onBack={handleBackToBoard} pomodoro={pomodoro} />
+		return (
+			<>
+				<FocusView onBack={handleBackToBoard} pomodoro={pomodoro} />
+				{showSearch && <SearchPalette onClose={() => setShowSearch(false)} onOpenCard={handleOpenCardFromSearch} />}
+			</>
+		)
 	}
 
 	if (route === 'todo') {
@@ -213,6 +233,7 @@ export default function App() {
 			<>
 				<AuraLayout />
 				{showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+				{showSearch && <SearchPalette onClose={() => setShowSearch(false)} onOpenCard={handleOpenCardFromSearch} />}
 			</>
 		)
 	}
@@ -227,6 +248,7 @@ export default function App() {
 				onOpenToday={handleOpenToday}
 			/>
 			{showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+			{showSearch && <SearchPalette onClose={() => setShowSearch(false)} onOpenCard={handleOpenCardFromSearch} />}
 		</>
 	)
 }

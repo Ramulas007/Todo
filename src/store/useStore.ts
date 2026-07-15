@@ -17,11 +17,18 @@ function daysAgo(n: number) {
 
 const MAX_HISTORY = 50
 
+// Helper: resolves the effective user ID for board operations (admin impersonation)
+function getEffectiveUserId(get: () => AppState): string | null {
+	const { currentUserId, adminImpersonateId } = get()
+	return adminImpersonateId ?? currentUserId
+}
+
 // ─── Store interface ─────────────────────────────────────────────────
 export interface AppState {
 	// Current user session
 	currentUserId: string | null
 	currentUser: User | null
+	adminImpersonateId: string | null // admin can act as another user
 
 	// Users
 	users: User[]
@@ -42,6 +49,7 @@ export interface AppState {
 	addUser: (user: User) => void
 	updateUser: (id: string, updates: Partial<User>) => void
 	removeUser: (id: string) => void
+	setAdminImpersonate: (userId: string | null) => void
 
 	// ─── Board actions ──────────────────────────────────────────────
 	createCard: (listId: string, card: Omit<Card, 'history' | 'createdAt' | 'updatedAt'>) => void
@@ -89,6 +97,7 @@ export interface AppState {
 	// ─── History management ──────────────────────────────────────
 	clearHistory: () => void
 	deleteCards: (cardIds: string[]) => void
+	moveCards: (cardIds: string[], targetListId: string) => void
 
 	// ─── Project: Work (Time Dashboard) ────────────────────────
 	// (reads from card.timeEntries, no new actions needed)
@@ -120,6 +129,14 @@ export interface AppState {
 
 	// ─── Auto-backlog ────────────────────────────────────────────────
 	moveExpiredToBacklog: () => void
+
+	// ─── Notifications ──────────────────────────────────────────────
+	notificationPermission: NotificationPermission
+	requestNotificationPermission: () => void
+	notifiedCardIds: Record<string, string> // cardId → ISO timestamp of last notification
+
+	// ─── Search ────────────────────────────────────────────────────
+	searchCards: (query: string) => Card[]
 
 	// ─── Selectors (derived) ────────────────────────────────────────
 	getBoard: (ownerId?: string) => Board | undefined
@@ -357,6 +374,7 @@ export const useStore = create<AppState>()(
 			// Session
 			currentUserId: null,
 			currentUser: null,
+			adminImpersonateId: null,
 			users: SEED_USERS,
 			boards: initialBoards,
 
@@ -377,6 +395,8 @@ export const useStore = create<AppState>()(
 			pomodoroSeconds: 25 * 60,
 			pomodoroRunning: false,
 			pomodoroCardId: null,
+			notificationPermission: typeof Notification !== "undefined" ? Notification.permission : "default",
+			notifiedCardIds: {},
 
 			// ─── Auth ─────────────────────────────────────────────────
 			login: (email, password) => {
@@ -437,24 +457,27 @@ export const useStore = create<AppState>()(
 					delete boards[`board-${id}`]
 					const currentUser = s.currentUserId === id ? null : s.currentUser
 					const currentUserId = s.currentUserId === id ? null : s.currentUserId
-					return { users, boards, currentUser, currentUserId }
+					return { users, boards, currentUser, currentUserId, adminImpersonateId: s.adminImpersonateId === id ? null : s.adminImpersonateId }
 				})
 			},
 
+			setAdminImpersonate: (userId) => set({ adminImpersonateId: userId }),
+
 			// ─── Board actions ───────────────────────────────────────
 			createCard: (listId, cardData) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const { currentUserId, adminImpersonateId } = get()
+				const effectiveUserId = adminImpersonateId ?? currentUserId
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const cardId = createId('card')
@@ -464,7 +487,7 @@ export const useStore = create<AppState>()(
 					id: cardId,
 					createdAt: ts,
 					updatedAt: ts,
-					history: [{ type: 'created', timestamp: ts, userId: currentUserId }],
+					history: [{ type: 'created', timestamp: ts, userId: effectiveUserId }],
 				}
 
 				const lists = board.lists.map((l) =>
@@ -476,24 +499,24 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, lists, cards: { ...board.cards, [cardId]: card } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			moveCard: (cardId, targetListId) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				// Dynamic lookup — no hardcoded IDs
@@ -525,7 +548,7 @@ export const useStore = create<AppState>()(
 								fromListId,
 								toListId: targetListId,
 								timestamp: ts,
-								userId: currentUserId,
+								userId: effectiveUserId,
 							},
 						],
 					}
@@ -535,17 +558,17 @@ export const useStore = create<AppState>()(
 							...get().boards,
 							[boardKey]: { ...board, lists, cards: { ...board.cards, [cardId]: updatedCard } },
 						},
-						history: { ...history, [currentUserId]: newHistory },
-						historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+						history: { ...history, [effectiveUserId]: newHistory },
+						historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 					})
 				}
 			},
 
 			completeTask: (cardId, taskId) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
@@ -555,8 +578,8 @@ export const useStore = create<AppState>()(
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				// Dynamic lookup
@@ -578,8 +601,8 @@ export const useStore = create<AppState>()(
 					completedAt: allDone ? ts : undefined,
 					history: [
 						...card.history,
-						{ type: 'task_completed', timestamp: ts, userId: currentUserId, description: `Completed "${task.title}"` },
-						...(allDone && doneListId ? [{ type: 'completed' as const, toListId: doneListId, timestamp: ts, userId: currentUserId }] : []),
+						{ type: 'task_completed', timestamp: ts, userId: effectiveUserId, description: `Completed "${task.title}"` },
+						...(allDone && doneListId ? [{ type: 'completed' as const, toListId: doneListId, timestamp: ts, userId: effectiveUserId }] : []),
 					],
 				}
 
@@ -602,16 +625,16 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, lists, cards: { ...board.cards, [cardId]: updatedCard } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			updateCard: (cardId, updates) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
@@ -621,8 +644,8 @@ export const useStore = create<AppState>()(
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const ts = now()
@@ -632,7 +655,7 @@ export const useStore = create<AppState>()(
 					updatedAt: ts,
 					history: [
 						...card.history,
-						{ type: 'edited', timestamp: ts, userId: currentUserId },
+						{ type: 'edited', timestamp: ts, userId: effectiveUserId },
 					],
 				}
 
@@ -647,18 +670,18 @@ export const useStore = create<AppState>()(
 			},
 
 			deleteCard: (cardId) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const lists = board.lists.map((l) => ({
@@ -677,24 +700,24 @@ export const useStore = create<AppState>()(
 
 				set({
 					boards: { ...get().boards, [boardKey]: { ...board, lists, cards } },
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			// ─── List management ─────────────────────────────────────
 			addList: (title, color) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const newList: List = {
@@ -710,23 +733,23 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, lists: [...board.lists, newList] },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			updateList: (listId, updates) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const lists = board.lists.map((l) =>
@@ -735,23 +758,23 @@ export const useStore = create<AppState>()(
 
 				set({
 					boards: { ...get().boards, [boardKey]: { ...board, lists } },
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			deleteList: (listId) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board || board.lists.length <= 1) return
 
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const deletedIdx = board.lists.findIndex((l) => l.id === listId)
@@ -771,23 +794,23 @@ export const useStore = create<AppState>()(
 
 				set({
 					boards: { ...get().boards, [boardKey]: { ...board, lists } },
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			reorderLists: (sourceIndex, destIndex) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const lists = [...board.lists]
@@ -797,17 +820,17 @@ export const useStore = create<AppState>()(
 
 				set({
 					boards: { ...get().boards, [boardKey]: { ...board, lists: reordered } },
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			// ─── Time tracking ─────────────────────────────────────────
 			logTime: (cardId, entry) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
@@ -817,8 +840,8 @@ export const useStore = create<AppState>()(
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const newEntry: TimeEntry = {
@@ -837,16 +860,16 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, cards: { ...board.cards, [cardId]: updatedCard } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			deleteTimeEntry: (cardId, entryId) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
@@ -856,8 +879,8 @@ export const useStore = create<AppState>()(
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const updatedCard: Card = {
@@ -871,17 +894,17 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, cards: { ...board.cards, [cardId]: updatedCard } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			// ─── Dependencies ─────────────────────────────────────────
 			linkCards: (cardId, dependsOnId) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
@@ -894,8 +917,8 @@ export const useStore = create<AppState>()(
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const updatedCard: Card = {
@@ -921,16 +944,16 @@ export const useStore = create<AppState>()(
 							},
 						},
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			unlinkCards: (cardId, dependsOnId) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
@@ -941,8 +964,8 @@ export const useStore = create<AppState>()(
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const updatedCard: Card = {
@@ -968,17 +991,17 @@ export const useStore = create<AppState>()(
 							},
 						},
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			// ─── Comments ─────────────────────────────────────────────
 			addComment: (cardId, text) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
@@ -988,13 +1011,13 @@ export const useStore = create<AppState>()(
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const newComment = {
 					id: createId('comment'),
-					authorId: currentUserId,
+					authorId: effectiveUserId,
 					text,
 					createdAt: now(),
 				}
@@ -1010,16 +1033,16 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, cards: { ...board.cards, [cardId]: updatedCard } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
 			deleteComment: (cardId, commentId) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
 
-				const boardKey = `board-${currentUserId}`
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
@@ -1029,8 +1052,8 @@ export const useStore = create<AppState>()(
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const updatedCard: Card = {
@@ -1044,8 +1067,8 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, cards: { ...board.cards, [cardId]: updatedCard } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
@@ -1085,16 +1108,16 @@ export const useStore = create<AppState>()(
 
 			// ─── Flat accessors (for AuraTask) ────────────────────
 			addCard: (listId, title, priority) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
-				const boardKey = `board-${currentUserId}`
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const cardId = createId('card')
@@ -1109,7 +1132,7 @@ export const useStore = create<AppState>()(
 					priority: (priority as any) ?? 'medium',
 					createdAt: ts,
 					updatedAt: ts,
-					history: [{ type: 'created', timestamp: ts, userId: currentUserId }],
+					history: [{ type: 'created', timestamp: ts, userId: effectiveUserId }],
 				}
 
 				const lists = board.lists.map((l) =>
@@ -1121,14 +1144,14 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, lists, cards: { ...board.cards, [cardId]: card } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 			toggleComplete: (cardId) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
-				const boardKey = `board-${currentUserId}`
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 				const card = board.cards[cardId]
@@ -1147,19 +1170,19 @@ export const useStore = create<AppState>()(
 						...card,
 						completedAt: ts,
 						updatedAt: ts,
-						history: [...card.history, { type: 'completed' as const, timestamp: ts, userId: currentUserId, toListId: doneListId }],
+						history: [...card.history, { type: 'completed' as const, timestamp: ts, userId: effectiveUserId, toListId: doneListId }],
 					}
 
 					const history = get().history
 					const historyIndex = get().historyIndex
-					const boardHistory = history[currentUserId] ?? []
-					const currentIndex = historyIndex[currentUserId] ?? -1
+					const boardHistory = history[effectiveUserId] ?? []
+					const currentIndex = historyIndex[effectiveUserId] ?? -1
 					const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 					set({
 						boards: { ...get().boards, [boardKey]: { ...board, lists, cards: { ...board.cards, [cardId]: updatedCard } } },
-						history: { ...history, [currentUserId]: newHistory },
-						historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+						history: { ...history, [effectiveUserId]: newHistory },
+						historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 					})
 					get().addXp(10)
 					get().updateStreak()
@@ -1170,36 +1193,36 @@ export const useStore = create<AppState>()(
 						...card,
 						completedAt: undefined,
 						updatedAt: ts,
-						history: [...card.history, { type: 'edited' as const, timestamp: ts, userId: currentUserId, description: 'Uncompleted' }],
+						history: [...card.history, { type: 'edited' as const, timestamp: ts, userId: effectiveUserId, description: 'Uncompleted' }],
 					}
 
 					const history = get().history
 					const historyIndex = get().historyIndex
-					const boardHistory = history[currentUserId] ?? []
-					const currentIndex = historyIndex[currentUserId] ?? -1
+					const boardHistory = history[effectiveUserId] ?? []
+					const currentIndex = historyIndex[effectiveUserId] ?? -1
 					const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 					set({
 						boards: { ...get().boards, [boardKey]: { ...board, cards: { ...board.cards, [cardId]: updatedCard } } },
-						history: { ...history, [currentUserId]: newHistory },
-						historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+						history: { ...history, [effectiveUserId]: newHistory },
+						historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 					})
 				}
 			},
 
 			// ─── History management ──────────────────────────────────
 			clearHistory: () => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
-				const boardKey = `board-${currentUserId}`
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				// Delete all completed cards
@@ -1218,8 +1241,8 @@ export const useStore = create<AppState>()(
 				// Reset gamification stats
 				set({
 					boards: { ...get().boards, [boardKey]: { ...board, lists, cards } },
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 					xp: 0,
 					level: 1,
 					streak: 0,
@@ -1229,17 +1252,17 @@ export const useStore = create<AppState>()(
 			},
 
 			deleteCards: (cardIds) => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
-				const boardKey = `board-${currentUserId}`
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
+				const boardKey = `board-${effectiveUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
 
 				// Push to history before mutation
 				const history = get().history
 				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
 				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const idsSet = new Set(cardIds.map(String))
@@ -1265,9 +1288,54 @@ export const useStore = create<AppState>()(
 
 				set({
 					boards: { ...get().boards, [boardKey]: { ...board, lists, cards } },
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 					totalCompleted: Math.max(0, get().totalCompleted - deletedCompleted),
+				})
+			},
+
+			moveCards: (cardIds, targetListId) => {
+				const effectiveUserId = getEffectiveUserId(get)
+				if (!effectiveUserId) return
+				const boardKey = `board-${effectiveUserId}`
+				const board = get().boards[boardKey]
+				if (!board) return
+
+				const history = get().history
+				const historyIndex = get().historyIndex
+				const boardHistory = history[effectiveUserId] ?? []
+				const currentIndex = historyIndex[effectiveUserId] ?? -1
+				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
+
+				const idsSet = new Set(cardIds.map(String))
+				const ts = now()
+
+				// Remove from source lists, add to target
+				const lists = board.lists.map((l) => {
+					if (l.id === targetListId) {
+						const newCardIds = l.cardIds.filter((id) => !idsSet.has(String(id)))
+						return { ...l, cardIds: [...newCardIds, ...cardIds.map(String)] }
+					}
+					return { ...l, cardIds: l.cardIds.filter((id) => !idsSet.has(String(id))) }
+				})
+
+				// Update card history
+				const updatedCards = { ...board.cards }
+				cardIds.forEach((id) => {
+					const card = updatedCards[id]
+					if (card) {
+						updatedCards[id] = {
+							...card,
+							updatedAt: ts,
+							history: [...card.history, { type: 'moved', toListId: targetListId, timestamp: ts, userId: effectiveUserId }],
+						}
+					}
+				})
+
+				set({
+					boards: { ...get().boards, [boardKey]: { ...board, lists, cards: updatedCards } },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 
@@ -1460,6 +1528,14 @@ export const useStore = create<AppState>()(
 				}
 			},
 
+			// ─── Notifications ────────────────────────────────────────
+			requestNotificationPermission: () => {
+				if (typeof Notification === "undefined") return
+				Notification.requestPermission().then((permission) => {
+					set({ notificationPermission: permission })
+				})
+			},
+
 			// ─── Undo/Redo ──────────────────────────────────────────
 			undo: () => {
 				const { currentUserId } = get()
@@ -1518,6 +1594,24 @@ export const useStore = create<AppState>()(
 				const boardHistory = history[currentUserId] ?? []
 				const currentIndex = historyIndex[currentUserId] ?? -1
 				return currentIndex < boardHistory.length - 1
+			},
+
+			// ─── Search ─────────────────────────────────────────────
+			searchCards: (query) => {
+				const { currentUserId } = get()
+				if (!currentUserId) return []
+				const board = get().boards[`board-${currentUserId}`]
+				if (!board) return []
+
+				const q = query.toLowerCase().trim()
+				if (!q) return []
+
+				return Object.values(board.cards).filter((card) => {
+					if (card.title.toLowerCase().includes(q)) return true
+					if (card.description?.toLowerCase().includes(q)) return true
+					if (card.tags?.some((t) => t.toLowerCase().includes(q))) return true
+					return false
+				})
 			},
 
 			// ─── Selectors ───────────────────────────────────────────

@@ -44,6 +44,7 @@ export default function TaskPanel({ onClose }: Props) {
 	const [draftTitle, setDraftTitle] = useState("");
 	const [draftDescription, setDraftDescription] = useState("");
 	const [initialized, setInitialized] = useState(false);
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
 	// Initialize drafts when card changes
 	if (card && !initialized) {
@@ -108,7 +109,7 @@ export default function TaskPanel({ onClose }: Props) {
 						← Back
 					</button>
 					<div className="flex items-center gap-2">
-						<button type="button" onClick={handleDelete} className="text-sm text-red-400/60 hover:text-red-400 transition-colors">
+						<button type="button" onClick={() => setShowDeleteConfirm(true)} className="text-sm text-red-400/60 hover:text-red-400 transition-colors">
 							Delete
 						</button>
 					</div>
@@ -126,8 +127,9 @@ export default function TaskPanel({ onClose }: Props) {
 						/>
 						<input
 							type="text"
-							value={card.title}
-							onChange={(e) => updateCard(card.id, { title: e.target.value })}
+							value={draftTitle}
+							onChange={(e) => setDraftTitle(e.target.value)}
+							onBlur={() => updateCard(card.id, { title: draftTitle })}
 							className="flex-1 text-lg font-semibold text-white bg-transparent border-none outline-none placeholder:text-white/30"
 							placeholder="Task title"
 						/>
@@ -137,8 +139,9 @@ export default function TaskPanel({ onClose }: Props) {
 					<div>
 						<p className="text-[10px] uppercase tracking-wider text-white/30 font-medium mb-2">Description</p>
 						<textarea
-							value={card.description}
-							onChange={(e) => updateCard(card.id, { description: e.target.value })}
+							value={draftDescription}
+							onChange={(e) => setDraftDescription(e.target.value)}
+							onBlur={() => updateCard(card.id, { description: draftDescription })}
 							placeholder="Add a description..."
 							rows={3}
 							className="w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm text-white/70 placeholder:text-white/20 outline-none resize-none focus:border-white/20 transition-colors"
@@ -210,12 +213,28 @@ export default function TaskPanel({ onClose }: Props) {
 							</div>
 							<div className="flex items-center justify-between">
 								<span className="text-xs text-white/40">Due date</span>
-								<input
-									type="date"
-									value={card.dueDate ?? ""}
-									onChange={(e) => updateCard(card.id, { dueDate: e.target.value || undefined })}
-									className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white outline-none [color-scheme:dark]"
-								/>
+								<div className="flex items-center gap-2">
+									<input
+										type="date"
+										value={card.dueDate ?? ""}
+										onChange={(e) => {
+											const date = e.target.value
+											updateCard(card.id, {
+												dueDate: date || undefined,
+												dueTime: date && !card.dueTime ? "23:59" : card.dueTime,
+											})
+										}}
+										className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white outline-none [color-scheme:dark]"
+									/>
+									{card.dueDate && (
+										<input
+											type="time"
+											value={card.dueTime ?? "23:59"}
+											onChange={(e) => updateCard(card.id, { dueTime: e.target.value || "23:59" })}
+											className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white outline-none [color-scheme:dark]"
+										/>
+									)}
+								</div>
 							</div>
 							<div className="flex items-center justify-between">
 								<span className="text-xs text-white/40">Time limit</span>
@@ -289,6 +308,45 @@ export default function TaskPanel({ onClose }: Props) {
 					</div>
 				</div>
 			</div>
+
+			{/* Delete Confirmation Modal */}
+			{showDeleteConfirm && (
+				<div className="fixed inset-0 z-[60] flex items-center justify-center">
+					<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
+					<div className="relative w-[380px] rounded-2xl bg-[#1a1d2e] border border-white/10 p-6 shadow-2xl">
+						<div className="flex items-center gap-3 mb-4">
+							<div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/20 flex items-center justify-center">
+								<svg className="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none">
+									<path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+								</svg>
+							</div>
+							<div>
+								<h3 className="text-sm font-semibold text-white">Delete "{card.title}"?</h3>
+								<p className="text-[11px] text-white/40">This cannot be undone</p>
+							</div>
+						</div>
+						<p className="text-xs text-white/50 mb-5 leading-relaxed">
+							This will permanently delete this card and all its tasks. Your dashboard stats will be adjusted accordingly.
+						</p>
+						<div className="flex items-center gap-2 justify-end">
+							<button
+								type="button"
+								onClick={() => setShowDeleteConfirm(false)}
+								className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all"
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								onClick={handleDelete}
+								className="px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-xs font-medium text-red-400 hover:bg-red-500/30 transition-all"
+							>
+								Delete
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

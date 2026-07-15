@@ -120,15 +120,16 @@ export function useDashboardMetrics(ownerId?: string): DashboardMetrics {
 
 		// ─── Avg time to complete ────────────────────────────────────
 		const completedWithTimestamps = cards.filter((c) => c.completedAt && c.createdAt)
+		let avgTimeToComplete: string
 		if (completedWithTimestamps.length > 0) {
 			const totalMs = completedWithTimestamps.reduce((sum, c) => {
 				return sum + (new Date(c.completedAt!).getTime() - new Date(c.createdAt).getTime())
 			}, 0)
 			const avgMs = totalMs / completedWithTimestamps.length
 			const avgDays = Math.round(avgMs / (24 * 60 * 60 * 1000))
-			var avgTimeToComplete = avgDays === 0 ? '< 1 day' : `${avgDays}d`
+			avgTimeToComplete = avgDays === 0 ? '< 1 day' : `${avgDays}d`
 		} else {
-			var avgTimeToComplete = '—'
+			avgTimeToComplete = '—'
 		}
 
 		// ─── Weekly activity (last 7 days, bucketed by day-of-week) ──

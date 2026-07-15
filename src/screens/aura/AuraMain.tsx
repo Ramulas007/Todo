@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useStore } from "../../store/useStore";
-import type { Card } from "../../types/board.types";
+import type { Card, Priority } from "../../types/board.types";
 import TaskCard from "./TaskCard";
 import GlassPanel from "../../components/GlassPanel";
 import WorkDashboard from "./projects/WorkDashboard";
@@ -36,6 +36,34 @@ export default function AuraMain() {
 	const lists = board?.lists ?? [];
 	const allCards = Object.values(cards);
 
+	// Filter state
+	const [priorityFilter, setPriorityFilter] = useState<Priority | "">("");
+	const [tagFilter, setTagFilter] = useState("");
+	// Selection state
+	const [selectMode, setSelectMode] = useState(false);
+	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+	const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
+	const [showMoveSelected, setShowMoveSelected] = useState(false);
+
+	// Collect all unique tags
+	const allTags = useMemo(() => {
+		const tagSet = new Set<string>();
+		allCards.forEach((c) => c.tags?.forEach((t) => tagSet.add(t)));
+		return [...tagSet].sort();
+	}, [allCards]);
+
+	// Apply priority + tag filters
+	const filteredByPriorityAndTag = useMemo(() => {
+		let result = allCards;
+		if (priorityFilter) {
+			result = result.filter((c) => c.priority === priorityFilter);
+		}
+		if (tagFilter) {
+			result = result.filter((c) => c.tags?.includes(tagFilter));
+		}
+		return result;
+	}, [allCards, priorityFilter, tagFilter]);
+
 	const today = new Date();
 	today.setHours(0, 0, 0, 0);
 	const tomorrow = new Date(today);
@@ -45,16 +73,48 @@ export default function AuraMain() {
 	const backlogCardIds = backlogListId
 		? lists.find((l) => l.id === backlogListId)?.cardIds ?? []
 		: [];
-	const backlogCards = allCards.filter((c) => backlogCardIds.includes(c.id));
+	const backlogCards = filteredByPriorityAndTag.filter((c) => backlogCardIds.includes(c.id));
 
 	// Filter cards based on active view
 	const filteredCards = activeView === "all"
-		? allCards
+		? filteredByPriorityAndTag
 		: activeView === "backlog"
 		? backlogCards
-		: allCards.filter((c) => c.tags?.includes(activeView));
+		: filteredByPriorityAndTag.filter((c) => c.tags?.includes(activeView));
 
 	const firstListId = lists[0]?.id;
+
+	function handleToggleSelect(cardId: string) {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(cardId)) next.delete(cardId);
+			else next.add(cardId);
+			return next;
+		});
+	}
+
+	function handleSelectAll() {
+		const visibleIds = filteredCards.map((c) => c.id);
+		if (selectedIds.size === visibleIds.length) {
+			setSelectedIds(new Set());
+		} else {
+			setSelectedIds(new Set(visibleIds));
+		}
+	}
+
+	function handleDeleteSelected() {
+		useStore.getState().deleteCards([...selectedIds]);
+		setSelectedIds(new Set());
+		setSelectMode(false);
+		setShowDeleteSelectedConfirm(false);
+	}
+
+	function handleMoveSelected(targetListId: string) {
+		useStore.getState().moveCards([...selectedIds], targetListId);
+		setSelectedIds(new Set());
+		setSelectMode(false);
+		setShowMoveSelected(false);
+	}
 
 	function handleAddTask() {
 		if (firstListId) {
@@ -99,6 +159,94 @@ export default function AuraMain() {
 
 	return (
 		<div className="flex-1 overflow-y-auto min-h-0 pr-2">
+			{/* Filter bar */}
+			{(priorityFilter || tagFilter || allTags.length > 0) && (
+				<div className="flex items-center gap-2 mb-4 flex-wrap">
+					<span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Filter:</span>
+					{(["low", "medium", "high", "urgent"] as Priority[]).map((p) => (
+						<button
+							key={p}
+							type="button"
+							onClick={() => setPriorityFilter(priorityFilter === p ? "" : p)}
+							className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all capitalize
+								${priorityFilter === p
+									? p === "urgent" ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+									: p === "high" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+									: p === "medium" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+									: "bg-white/10 text-white/60 border border-white/20"
+								: "bg-white/5 text-white/30 border border-white/5 hover:text-white/50"
+							}`}
+						>
+							{p}
+						</button>
+					))}
+					{allTags.length > 0 && (
+						<select
+							value={tagFilter}
+							onChange={(e) => setTagFilter(e.target.value)}
+							className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/50 outline-none"
+						>
+							<option value="">All tags</option>
+							{allTags.map((t) => (
+								<option key={t} value={t}>{t}</option>
+							))}
+						</select>
+					)}
+					{(priorityFilter || tagFilter) && (
+						<button
+							type="button"
+							onClick={() => { setPriorityFilter(""); setTagFilter(""); }}
+							className="text-[10px] text-white/20 hover:text-white/50 transition-colors"
+						>
+							Clear
+						</button>
+					)}
+				</div>
+			)}
+
+			{/* Selection toolbar */}
+			<div className="flex items-center justify-between mb-4">
+				<div className="flex items-center gap-2">
+					<button
+						type="button"
+						onClick={() => { setSelectMode(!selectMode); setSelectedIds(new Set()); }}
+						className={`px-3 py-1.5 rounded-lg text-[10px] font-medium transition-all
+							${selectMode ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" : "bg-white/5 text-white/40 border border-white/10 hover:text-white/60"}`}
+					>
+						{selectMode ? `Selecting (${selectedIds.size})` : "Select"}
+					</button>
+					{selectMode && (
+						<>
+							<button
+								type="button"
+								onClick={handleSelectAll}
+								className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/40 hover:text-white/60 transition-colors"
+							>
+								{selectedIds.size === filteredCards.length ? "Deselect all" : "Select all"}
+							</button>
+							{selectedIds.size > 0 && (
+								<>
+									<button
+										type="button"
+										onClick={() => setShowMoveSelected(true)}
+										className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/40 hover:text-white/60 transition-colors"
+									>
+										Move ({selectedIds.size})
+									</button>
+									<button
+										type="button"
+										onClick={() => setShowDeleteSelectedConfirm(true)}
+										className="px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-[10px] text-red-400 hover:bg-red-500/20 transition-colors"
+									>
+										Delete ({selectedIds.size})
+									</button>
+								</>
+							)}
+						</>
+					)}
+				</div>
+			</div>
+
 			{/* Today's Tasks */}
 			<div className="flex items-center justify-between mb-4">
 				<h2 className="text-sm font-semibold text-white/70">Today's Tasks</h2>
@@ -107,7 +255,7 @@ export default function AuraMain() {
 			{todayCards.length > 0 ? (
 				<div className="grid grid-cols-2 gap-3 mb-8">
 					{todayCards.map((card) => (
-						<TaskCard key={card.id} card={card} />
+						<TaskCard key={card.id} card={card} selectMode={selectMode} selected={selectedIds.has(card.id)} onSelectToggle={handleToggleSelect} />
 					))}
 				</div>
 			) : (
@@ -131,7 +279,7 @@ export default function AuraMain() {
 					</div>
 					<div className="grid grid-cols-2 gap-3 mb-8">
 						{backlogCards.map((card) => (
-							<TaskCard key={card.id} card={card} />
+							<TaskCard key={card.id} card={card} selectMode={selectMode} selected={selectedIds.has(card.id)} onSelectToggle={handleToggleSelect} />
 						))}
 					</div>
 				</>
@@ -146,7 +294,7 @@ export default function AuraMain() {
 					</div>
 					<div className="grid grid-cols-2 gap-3 mb-8">
 						{upcomingCards.map((card) => (
-							<TaskCard key={card.id} card={card} />
+							<TaskCard key={card.id} card={card} selectMode={selectMode} selected={selectedIds.has(card.id)} onSelectToggle={handleToggleSelect} />
 						))}
 					</div>
 				</>
@@ -159,6 +307,13 @@ export default function AuraMain() {
 						<h2 className="text-sm font-semibold text-emerald-400/70">Completed</h2>
 						<div className="flex items-center gap-2">
 							<span className="text-[10px] text-emerald-400/40">{completedCards.length} done</span>
+							<button
+								type="button"
+								onClick={() => useStore.getState().clearHistory()}
+								className="text-[10px] text-white/20 hover:text-white/40 transition-colors"
+							>
+								Clear completed
+							</button>
 							{completedCards.length > 6 && (
 								<button
 									type="button"
@@ -172,7 +327,7 @@ export default function AuraMain() {
 					</div>
 					<div className="grid grid-cols-2 gap-3 mb-8">
 						{completedCards.slice(0, 6).map((card) => (
-							<TaskCard key={card.id} card={card} />
+							<TaskCard key={card.id} card={card} selectMode={selectMode} selected={selectedIds.has(card.id)} onSelectToggle={handleToggleSelect} />
 						))}
 					</div>
 				</>
@@ -190,6 +345,57 @@ export default function AuraMain() {
 						</button>
 					</div>
 				</GlassPanel>
+			)}
+
+			{/* Delete Selected Confirmation Modal */}
+			{showDeleteSelectedConfirm && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center">
+					<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteSelectedConfirm(false)} />
+					<div className="relative w-[380px] rounded-2xl bg-[#1a1d2e] border border-white/10 p-6 shadow-2xl">
+						<div className="flex items-center gap-3 mb-4">
+							<div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/20 flex items-center justify-center">
+								<svg className="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none">
+									<path d="M12 9v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+								</svg>
+							</div>
+							<div>
+								<h3 className="text-sm font-semibold text-white">Delete Selected</h3>
+								<p className="text-[11px] text-white/40">This action cannot be undone</p>
+							</div>
+						</div>
+						<p className="text-xs text-white/50 mb-5 leading-relaxed">
+							This will permanently delete {selectedIds.size} selected task{selectedIds.size > 1 ? "s" : ""}.
+						</p>
+						<div className="flex items-center gap-2 justify-end">
+							<button type="button" onClick={() => setShowDeleteSelectedConfirm(false)}
+								className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all">Cancel</button>
+							<button type="button" onClick={handleDeleteSelected}
+								className="px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-xs font-medium text-red-400 hover:bg-red-500/30 transition-all">Delete</button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Move Selected Modal */}
+			{showMoveSelected && (
+				<div className="fixed inset-0 z-50 flex items-center justify-center">
+					<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMoveSelected(false)} />
+					<div className="relative w-[380px] rounded-2xl bg-[#1a1d2e] border border-white/10 p-6 shadow-2xl">
+						<h3 className="text-sm font-semibold text-white mb-4">Move {selectedIds.size} card{selectedIds.size > 1 ? "s" : ""} to...</h3>
+						<div className="space-y-1.5 mb-5">
+							{lists.map((list) => (
+								<button key={list.id} type="button" onClick={() => handleMoveSelected(list.id)}
+									className="w-full text-left px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-white/60 hover:bg-white/10 hover:text-white transition-all">
+									{list.title}
+								</button>
+							))}
+						</div>
+						<div className="flex justify-end">
+							<button type="button" onClick={() => setShowMoveSelected(false)}
+								className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all">Cancel</button>
+						</div>
+					</div>
+				</div>
 			)}
 		</div>
 	);

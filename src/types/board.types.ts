@@ -131,6 +131,7 @@ export interface Card {
 	// Extended fields (PRD 5.2)
 	priority?: Priority
 	dueDate?: string // ISO date
+	dueTime?: string // HH:mm — default 23:59 when only date is set
 	assigneeId?: string
 	tags?: string[]
 	createdAt: string // ISO datetime

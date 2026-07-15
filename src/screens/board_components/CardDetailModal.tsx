@@ -50,6 +50,7 @@ export default function CardDetailModal({ card, onClose }: Props) {
 	const [description, setDescription] = useState(card.description);
 	const [priority, setPriority] = useState<Priority>(card.priority ?? "medium");
 	const [dueDate, setDueDate] = useState(card.dueDate ?? "");
+	const [dueTime, setDueTime] = useState(card.dueTime ?? "");
 	const [newTaskTitle, setNewTaskTitle] = useState("");
 	const [activeTab, setActiveTab] = useState<Tab>("details");
 
@@ -74,6 +75,7 @@ export default function CardDetailModal({ card, onClose }: Props) {
 			description: description.trim(),
 			priority,
 			dueDate: dueDate || undefined,
+			dueTime: dueDate ? (dueTime || "23:59") : undefined,
 		});
 		onClose();
 	}
@@ -228,12 +230,25 @@ export default function CardDetailModal({ card, onClose }: Props) {
 								</div>
 								<div>
 									<label className="block text-xs font-medium text-slate-400 mb-2">Due Date</label>
-									<input
-										type="date"
-										value={dueDate}
-										onChange={(e) => setDueDate(e.target.value)}
-										className="w-full rounded-xl bg-[#22263a] border border-white/5 px-3 py-2 text-sm text-white outline-none transition-all focus:border-indigo-500/50 [color-scheme:dark]"
-									/>
+									<div className="flex gap-2">
+										<input
+											type="date"
+											value={dueDate}
+											onChange={(e) => {
+												setDueDate(e.target.value)
+												if (e.target.value && !dueTime) setDueTime("23:59")
+											}}
+											className="flex-1 rounded-xl bg-[#22263a] border border-white/5 px-3 py-2 text-sm text-white outline-none transition-all focus:border-indigo-500/50 [color-scheme:dark]"
+										/>
+										{dueDate && (
+											<input
+												type="time"
+												value={dueTime || "23:59"}
+												onChange={(e) => setDueTime(e.target.value || "23:59")}
+												className="w-24 rounded-xl bg-[#22263a] border border-white/5 px-3 py-2 text-sm text-white outline-none transition-all focus:border-indigo-500/50 [color-scheme:dark]"
+											/>
+										)}
+									</div>
 								</div>
 							</div>
 							{card.tags && card.tags.length > 0 && (

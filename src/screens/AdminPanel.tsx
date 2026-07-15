@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
-import type { User, UserRole } from '../types/board.types'
+import type { User, UserRole, Card } from '../types/board.types'
 import BlobBackground from '../components/BlobBackground'
 import CustomSelect from '../components/CustomSelect'
 
@@ -23,12 +23,29 @@ export default function AdminPanel({
 	const updateUser = useStore((s) => s.updateUser)
 	const removeUser = useStore((s) => s.removeUser)
 	const boards = useStore((s) => s.boards)
+	const setAdminImpersonate = useStore((s) => s.setAdminImpersonate)
+	const addCard = useStore((s) => s.addCard)
+	const updateCard = useStore((s) => s.updateCard)
+	const deleteCard = useStore((s) => s.deleteCard)
 
 	const [selectedUserId, setSelectedUserId] = useState<string>(adminUser.id)
 	const [draft, setDraft] = useState({
 		name: '', email: '', password: '', role: 'member' as UserRole,
 		title: '', team: '', accent: 'cyan' as string,
 	})
+	const [adminTab, setAdminTab] = useState<'users' | 'board' | 'completed'>('users')
+	const [editingCardId, setEditingCardId] = useState<string | null>(null)
+	const [cardDraft, setCardDraft] = useState({ title: '', description: '' })
+
+	// Set impersonation when viewing another user's board
+	useEffect(() => {
+		if (selectedUserId && selectedUserId !== 'new' && selectedUserId !== adminUser.id) {
+			setAdminImpersonate(selectedUserId)
+		} else {
+			setAdminImpersonate(null)
+		}
+		return () => setAdminImpersonate(null)
+	}, [selectedUserId, adminUser.id, setAdminImpersonate])
 
 	const isCreating = selectedUserId === 'new'
 	const selectedUser = isCreating ? null : users.find((u) => u.id === selectedUserId) ?? null
@@ -251,23 +268,113 @@ export default function AdminPanel({
 								</div>
 							</section>
 
-							{selectedUser && (
+							{selectedUser && selectedUser.id !== adminUser.id && (
 								<section className="glass rounded-xl p-5">
-									<p className="text-[10px] uppercase tracking-[0.2em] text-white/30 font-medium">User's board</p>
-									<div className="mt-4 space-y-2">
-										{boards[`board-${selectedUser.id}`]?.lists.map((list) => {
-											const count = list.cardIds.length
-											return (
-												<div key={list.id} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.03]">
-													<div className="flex items-center gap-2">
-														<span className="w-2 h-2 rounded-full" style={{ backgroundColor: list.color }} />
-														<span className="text-xs text-white/60">{list.title}</span>
-													</div>
-													<span className="text-xs text-white/30">{count}</span>
-												</div>
-											)
-										})}
+									<div className="flex items-center gap-2 mb-4">
+										{(['board', 'completed'] as const).map((tab) => (
+											<button key={tab} type="button" onClick={() => setAdminTab(tab)}
+												className={`px-3 py-1.5 rounded-lg text-[10px] font-medium transition-all capitalize
+													${adminTab === tab ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" : "bg-white/5 text-white/30 border border-white/5 hover:text-white/50"}`}
+											>{tab === 'board' ? 'Board' : 'Completed'}</button>
+										))}
 									</div>
+
+									{adminTab === 'board' && (() => {
+										const board = boards[`board-${selectedUser.id}`]
+										if (!board) return <p className="text-xs text-white/30">No board found</p>
+										const allCards = Object.values(board.cards).filter((c) => !c.completedAt)
+										return (
+											<div className="space-y-2">
+												<div className="flex items-center justify-between mb-2">
+													<span className="text-[10px] text-white/30">{allCards.length} active cards</span>
+													<button type="button" onClick={() => {
+														const firstListId = board.lists[0]?.id
+														if (firstListId) addCard(firstListId, 'New task')
+													}}
+														className="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors">+ Add card</button>
+												</div>
+												{allCards.map((card) => (
+													<div key={card.id} className="group p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
+														{editingCardId === card.id ? (
+															<div className="space-y-2">
+																<input type="text" value={cardDraft.title}
+																	onChange={(e) => setCardDraft({ ...cardDraft, title: e.target.value })}
+																	className="w-full rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none"
+																	placeholder="Card title" />
+																<textarea value={cardDraft.description}
+																	onChange={(e) => setCardDraft({ ...cardDraft, description: e.target.value })}
+																	rows={2}
+																	className="w-full rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none resize-none"
+																	placeholder="Description" />
+																<div className="flex gap-1.5">
+																	<button type="button" onClick={() => {
+																		updateCard(card.id, { title: cardDraft.title, description: cardDraft.description })
+																		setEditingCardId(null)
+																	}}
+																		className="px-2 py-1 rounded bg-indigo-500/20 text-[10px] text-indigo-400">Save</button>
+																	<button type="button" onClick={() => setEditingCardId(null)}
+																		className="px-2 py-1 rounded bg-white/5 text-[10px] text-white/40">Cancel</button>
+																</div>
+															</div>
+														) : (
+															<div className="flex items-center justify-between">
+																<div className="flex-1 min-w-0">
+																	<p className="text-xs text-white/70 truncate">{card.title}</p>
+																	<div className="flex items-center gap-2 mt-0.5">
+																		<span className="text-[10px] text-white/25">{card.tasks.length} tasks</span>
+																		{card.priority && (
+																			<span className={`text-[10px] capitalize ${
+																				card.priority === 'urgent' ? 'text-red-400' :
+																				card.priority === 'high' ? 'text-amber-400' :
+																				card.priority === 'medium' ? 'text-blue-400' : 'text-white/30'
+																			}`}>{card.priority}</span>
+																		)}
+																	</div>
+																</div>
+																<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+																	<button type="button" onClick={() => {
+																		setEditingCardId(card.id)
+																		setCardDraft({ title: card.title, description: card.description })
+																	}}
+																		className="p-1 rounded text-white/30 hover:text-white/60 transition-colors">
+																		<svg className="w-3 h-3" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2-7 7H1.5v-2l7-7z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+																	</button>
+																	<button type="button" onClick={() => deleteCard(card.id)}
+																		className="p-1 rounded text-white/30 hover:text-red-400 transition-colors">
+																		<svg className="w-3 h-3" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M4.67 3V1.67a.33.33 0 01.33-.33h2a.33.33 0 01.33.33V3M5 5.67v3.33M7 5.67v3.33" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.67 3l.33 6.33a.67.67 0 00.67.67h5a.67.67 0 00.67-.67l.33-6.33" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"/></svg>
+																	</button>
+																</div>
+															</div>
+														)}
+													</div>
+												))}
+											</div>
+										)
+									})()}
+
+									{adminTab === 'completed' && (() => {
+										const board = boards[`board-${selectedUser.id}`]
+										if (!board) return <p className="text-xs text-white/30">No board found</p>
+										const completedCards = Object.values(board.cards).filter((c) => !!c.completedAt)
+										return (
+											<div className="space-y-2">
+												<span className="text-[10px] text-white/30">{completedCards.length} completed</span>
+												{completedCards.length === 0 ? (
+													<p className="text-xs text-white/20 text-center py-4">No completed tasks yet</p>
+												) : completedCards.map((card) => (
+													<div key={card.id} className="p-2.5 rounded-lg bg-white/[0.03] opacity-60">
+														<p className="text-xs text-white/50 line-through truncate">{card.title}</p>
+														<div className="flex items-center gap-2 mt-0.5">
+															<span className="text-[10px] text-white/20">
+																Done {card.completedAt ? new Date(card.completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+															</span>
+															<span className="text-[10px] text-white/20">{card.tasks.filter((t) => t.isCompleted).length}/{card.tasks.length} tasks</span>
+														</div>
+													</div>
+												))}
+											</div>
+										)
+									})()}
 								</section>
 							)}
 						</aside>

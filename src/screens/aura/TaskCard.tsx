@@ -3,6 +3,9 @@ import type { Card } from "../../types/board.types";
 
 interface Props {
 	card: Card;
+	selectMode?: boolean;
+	selected?: boolean;
+	onSelectToggle?: (cardId: string) => void;
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -40,7 +43,7 @@ function getAge(createdAt: string): string {
 	return `${days}d`;
 }
 
-export default function TaskCard({ card }: Props) {
+export default function TaskCard({ card, selectMode, selected, onSelectToggle }: Props) {
 	const openPanel = useStore((s) => s.openPanel);
 	const toggleComplete = useStore((s) => s.toggleComplete);
 
@@ -55,24 +58,34 @@ export default function TaskCard({ card }: Props) {
 
 	return (
 		<div
-			onClick={() => openPanel(card.id)}
+			onClick={() => selectMode ? onSelectToggle?.(card.id) : openPanel(card.id)}
 			className={`glass-card rounded-xl p-3.5 border-l-[3px] cursor-pointer
 				hover:bg-white/[0.06] hover:border-white/[0.12] transition-all duration-150
-				${borderColor} ${isCompleted ? "opacity-50" : ""}
+				${borderColor} ${isCompleted ? "opacity-50" : ""} ${selected ? "ring-1 ring-indigo-500/50 bg-indigo-500/5" : ""}
 			`}
 		>
 			{/* Title row */}
 			<div className="flex items-center gap-2.5 mb-2">
-				<input
-					type="checkbox"
-					checked={isCompleted}
-					onChange={(e) => {
-						e.stopPropagation();
-						toggleComplete(card.id);
-					}}
-					className="checkbox-custom"
-					onClick={(e) => e.stopPropagation()}
-				/>
+				{selectMode ? (
+					<input
+						type="checkbox"
+						checked={selected}
+						onChange={() => onSelectToggle?.(card.id)}
+						className="checkbox-custom"
+						onClick={(e) => e.stopPropagation()}
+					/>
+				) : (
+					<input
+						type="checkbox"
+						checked={isCompleted}
+						onChange={(e) => {
+							e.stopPropagation();
+							toggleComplete(card.id);
+						}}
+						className="checkbox-custom"
+						onClick={(e) => e.stopPropagation()}
+					/>
+				)}
 				<span className={`text-sm font-medium flex-1 ${isCompleted ? "text-white/40 line-through" : "text-white"}`}>
 					{card.title}
 				</span>
