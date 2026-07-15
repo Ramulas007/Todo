@@ -69,7 +69,7 @@ export default function TaskPanel({ onClose }: Props) {
 	const isCompleted = !!card.completedAt;
 
 	function handleAddTask() {
-		if (!newTaskTitle.trim()) return;
+		if (!card || !newTaskTitle.trim()) return;
 		const newTasks = [
 			...card.tasks,
 			{
@@ -85,6 +85,7 @@ export default function TaskPanel({ onClose }: Props) {
 	}
 
 	function handleToggleTask(taskId: string) {
+		if (!card) return;
 		const newTasks = card.tasks.map((t) =>
 			t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t
 		);
@@ -92,6 +93,7 @@ export default function TaskPanel({ onClose }: Props) {
 	}
 
 	function handleDelete() {
+		if (!card) return;
 		deleteCard(card.id);
 		onClose();
 	}

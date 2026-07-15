@@ -24,8 +24,6 @@ const HANDLE_POSITIONS: { side: HandleSide; style: React.CSSProperties }[] = [
 	{ side: "left", style: { top: "50%", left: -7, transform: "translateY(-50%)" } },
 ];
 
-const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899"];
-
 export default function MindMapNodeComponent({
 	node, selected, isConnecting, connectingFrom,
 	onMove, onEdit, onDelete, onConnectStart, onConnectEnd, onSelect, onColorCycle,

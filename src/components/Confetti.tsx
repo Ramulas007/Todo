@@ -65,6 +65,7 @@ export default function Confetti({
 		let frame: number;
 
 		function animate(now: number) {
+			if (!ctx || !canvas) return;
 			const elapsed = now - start;
 			const progress = Math.min(elapsed / duration, 1);
 

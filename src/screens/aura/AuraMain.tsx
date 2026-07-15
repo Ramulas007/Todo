@@ -123,7 +123,7 @@ export default function AuraMain() {
 	}
 
 	// ─── Project-specific views ─────────────────────────────────
-	if (activeView === "today") return <TodayView onBackToBoard={() => setActiveView("all")} />;
+	if (activeView === "today") return <TodayView onBackToBoard={() => useStore.getState().setActiveView("all")} />;
 	if (activeView === "work") return <WorkDashboard />;
 	if (activeView === "personal") return <PersonalView />;
 	if (activeView === "ideas") return <IdeasView />;

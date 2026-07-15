@@ -136,7 +136,7 @@ const MAX_HISTORY = 50;
 
 export default function MindMap({ data, onSave }: Props) {
 	const [map, setMap] = useState<MindMapData>(data ?? createDefaultData);
-	const [history, setHistory] = useState<MindMapData[]>([data ?? createDefaultData]);
+	const [history, setHistory] = useState<MindMapData[]>([data ?? createDefaultData()]);
 	const [historyIdx, setHistoryIdx] = useState(0);
 	const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 	const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -304,10 +304,6 @@ export default function MindMap({ data, onSave }: Props) {
 
 	function handleNodeMove(id: string, x: number, y: number) {
 		setMap({ ...map, nodes: map.nodes.map((n) => n.id === id ? { ...n, x, y } : n) });
-	}
-
-	function handleNodeMoveCommit(id: string, x: number, y: number) {
-		save({ ...map, nodes: map.nodes.map((n) => n.id === id ? { ...n, x, y } : n) });
 	}
 
 	function handleNodeEdit(id: string, text: string) {

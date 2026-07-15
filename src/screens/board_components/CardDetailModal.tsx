@@ -42,7 +42,6 @@ export default function CardDetailModal({ card, onClose }: Props) {
 	const deleteTimeEntry = useStore((s) => s.deleteTimeEntry);
 	const addComment = useStore((s) => s.addComment);
 	const deleteComment = useStore((s) => s.deleteComment);
-	const board = useStore((s) => s.getBoard());
 	const users = useStore((s) => s.users);
 	const currentUserId = useStore((s) => s.currentUserId);
 

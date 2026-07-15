@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store/useStore'
-import type { User, UserRole, Card } from '../types/board.types'
+import type { User, UserRole, WidgetTone } from '../types/board.types'
 import BlobBackground from '../components/BlobBackground'
 import CustomSelect from '../components/CustomSelect'
 
@@ -11,12 +11,10 @@ function formatCount(value: number) {
 export default function AdminPanel({
 	adminUser,
 	users,
-	onUsersChange,
 	onLogout,
 }: {
 	adminUser: User
 	users: User[]
-	onUsersChange: (users: User[]) => void
 	onLogout: () => void
 }) {
 	const addUser = useStore((s) => s.addUser)
@@ -31,7 +29,7 @@ export default function AdminPanel({
 	const [selectedUserId, setSelectedUserId] = useState<string>(adminUser.id)
 	const [draft, setDraft] = useState({
 		name: '', email: '', password: '', role: 'member' as UserRole,
-		title: '', team: '', accent: 'cyan' as string,
+		title: '', team: '', accent: 'cyan' as WidgetTone,
 	})
 	const [adminTab, setAdminTab] = useState<'users' | 'board' | 'completed'>('users')
 	const [editingCardId, setEditingCardId] = useState<string | null>(null)
@@ -256,7 +254,7 @@ export default function AdminPanel({
 									<p className="text-[10px] uppercase tracking-[0.15em] text-white/30 font-medium mb-2">Accent</p>
 									<CustomSelect
 										value={draft.accent}
-										onChange={(v) => setDraft({ ...draft, accent: v })}
+										onChange={(v) => setDraft({ ...draft, accent: v as WidgetTone })}
 										options={[
 											{ value: "cyan", label: "Cyan", color: "#06b6d4" },
 											{ value: "amber", label: "Amber", color: "#f59e0b" },

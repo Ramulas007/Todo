@@ -9,7 +9,6 @@ export default function PersonalView() {
 	const board = currentUserId ? boards[`board-${currentUserId}`] : undefined;
 
 	const today = new Date();
-	const todayStr = today.toISOString().slice(0, 10);
 
 	// Weekly summary stats
 	const stats = useMemo(() => {
@@ -44,7 +43,6 @@ export default function PersonalView() {
 	// Greeting based on time of day
 	const hour = today.getHours();
 	const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-	const userName = board?.ownerId?.split("-").pop() ?? "there";
 
 	const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 

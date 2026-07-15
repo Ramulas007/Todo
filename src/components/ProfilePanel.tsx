@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useStore } from "../store/useStore";
-import type { User } from "../types/board.types";
 
 interface Props {
 	onClose: () => void;
@@ -24,6 +23,7 @@ export default function ProfilePanel({ onClose }: Props) {
 	if (!currentUser) return null;
 
 	function handleSave() {
+		if (!currentUser) return;
 		setError("");
 
 		if (!draft.name.trim()) {

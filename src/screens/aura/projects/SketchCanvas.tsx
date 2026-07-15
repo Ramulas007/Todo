@@ -360,6 +360,7 @@ export default function SketchCanvas({ data, onSave }: Props) {
 					onUndo={undo} onRedo={redo}
 					canUndo={historyIdx > 0} canRedo={historyIdx < history.length - 1}
 					onExport={handleExport}
+					onClear={handleClear}
 				/>
 
 				{/* Canvas — fills remaining space */}

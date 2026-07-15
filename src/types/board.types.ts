@@ -32,7 +32,7 @@ export interface CardEvent {
 
 // ─── Task (subtask / checklist item) ─────────────────────────────────
 export interface Task {
-	id: number | string
+	id: string
 	title: string
 	description: string
 	isCompleted: boolean
@@ -122,7 +122,7 @@ export interface Habit {
 }
 
 export interface Card {
-	id: number | string
+	id: string
 	title: string
 	description: string
 	tasks: Task[]
@@ -155,9 +155,9 @@ export interface Card {
 
 // ─── List (column) ───────────────────────────────────────────────────
 export interface List {
-	id: number | string
+	id: string
 	title: string
-	cardIds: (number | string)[]
+	cardIds: string[]
 	position: number
 	color: string
 	wipLimit?: number
@@ -165,12 +165,12 @@ export interface List {
 
 // ─── Board ───────────────────────────────────────────────────────────
 export interface Board {
-	id: number | string
+	id: string
 	ownerId: string
 	title: string
 	description: string
 	lists: List[]
-	cards: Record<string | number, Card>
+	cards: Record<string, Card>
 	// Personal: Habits + Journal
 	habits?: Habit[]
 	journalEntries?: Record<string, string> // keyed by date "2026-07-15"

@@ -89,13 +89,13 @@ export default function AuraRightPanel() {
 
 	function handleToggleMode() {
 		clearTimer();
-		setTimerRunning(false);
+		useStore.setState({ pomodoroRunning: false });
 		if (timerMode === "countdown") {
 			setTimerMode("stopwatch");
-			setTimerSeconds(0);
+			useStore.setState({ pomodoroSeconds: 0 });
 		} else {
 			setTimerMode("countdown");
-			setTimerSeconds(targetMinutes * 60);
+			useStore.setState({ pomodoroSeconds: targetMinutes * 60 });
 		}
 	}
 

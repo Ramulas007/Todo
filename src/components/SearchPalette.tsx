@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useStore } from "../store/useStore";
-import type { Card } from "../types/board.types";
 
 interface Props {
 	onClose: () => void;
@@ -95,9 +94,6 @@ export default function SearchPalette({ onClose, onOpenCard }: Props) {
 										<span className="text-sm text-white/80 truncate">{card.title}</span>
 										{card.priority && card.priority !== "medium" && (
 											<span className={`text-[10px] capitalize ${priorityColors[card.priority]}`}>{card.priority}</span>
-										)}
-										{card.recurrence && (
-											<span className="text-[10px] text-indigo-400">↻</span>
 										)}
 									</div>
 									<div className="flex items-center gap-2 mt-0.5">

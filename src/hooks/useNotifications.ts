@@ -6,8 +6,6 @@ const WINDOW_MS = 5 * 60 * 1000; // next 5 minutes
 
 export function useNotifications() {
 	const notificationPermission = useStore((s) => s.notificationPermission);
-	const boards = useStore((s) => s.boards);
-	const currentUserId = useStore((s) => s.currentUserId);
 	const notifiedCardIds = useStore((s) => s.notifiedCardIds);
 
 	useEffect(() => {

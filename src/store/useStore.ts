@@ -52,7 +52,7 @@ export interface AppState {
 	setAdminImpersonate: (userId: string | null) => void
 
 	// ─── Board actions ──────────────────────────────────────────────
-	createCard: (listId: string, card: Omit<Card, 'history' | 'createdAt' | 'updatedAt'>) => void
+	createCard: (listId: string, card: Omit<Card, 'id' | 'history' | 'createdAt' | 'updatedAt'>) => void
 	moveCard: (cardId: string, targetListId: string) => void
 	completeTask: (cardId: string, taskId: string) => void
 	updateCard: (cardId: string, updates: Partial<Card>) => void
@@ -417,6 +417,7 @@ export const useStore = create<AppState>()(
 						id: createId('user-google'),
 						name,
 						email: normalizedEmail,
+						password: '',
 						role: 'member',
 						title: 'Team member',
 						team: 'General',
@@ -664,8 +665,8 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, cards: { ...board.cards, [cardId]: updatedCard } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
+					history: { ...history, [effectiveUserId]: newHistory },
+					historyIndex: { ...historyIndex, [effectiveUserId]: newHistory.length - 1 },
 				})
 			},
 

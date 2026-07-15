@@ -80,6 +80,7 @@ export function useTodayView() {
 		todayEnd.setDate(todayEnd.getDate() + 1);
 
 		function getListName(cardId: string): string {
+			if (!board) return "Unknown";
 			return board.lists.find((l) => l.cardIds.includes(cardId))?.title ?? "Unknown";
 		}
 
@@ -130,6 +131,7 @@ export function useTodayView() {
 					new Date(c.completedAt) >= today &&
 					new Date(c.completedAt) < todayEnd
 			)
+			.map(enrichCard)
 			.sort(
 				(a, b) =>
 					new Date(b.completedAt!).getTime() -

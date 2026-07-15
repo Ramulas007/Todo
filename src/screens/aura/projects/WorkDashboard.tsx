@@ -122,9 +122,6 @@ export default function WorkDashboard() {
 		return [...map.values()].sort((a, b) => b.mins - a.mins).slice(0, 5);
 	}, [entries]);
 
-	const PRIORITY_COLORS: Record<string, string> = {
-		urgent: "text-rose-400", high: "text-orange-400", medium: "text-blue-400", low: "text-white/40",
-	};
 	const PRIORITY_DOTS: Record<string, string> = {
 		urgent: "bg-rose-500", high: "bg-orange-500", medium: "bg-blue-500", low: "bg-white/30",
 	};

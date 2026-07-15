@@ -25,7 +25,6 @@ export default function TodayView({ onBackToBoard }: Props) {
 			addXp(10);
 			updateStreak();
 		} else if (card.completedAt && doneListId && todoListId) {
-			const cardInBoard = board?.cards[String(card.id)];
 			const isInDone = board?.lists.find((l) => l.id === doneListId)?.cardIds.includes(String(card.id));
 			if (isInDone) {
 				moveCard(String(card.id), todoListId);
