@@ -1,9 +1,6 @@
-import { useState } from "react";
 import { useDroppable } from "@dnd-kit/react";
 import type { Card, List } from "../../types/board.types";
 import CardItem from "./Card";
-import AddCardModal from "./AddCardModal";
-import CardDetailModal from "./CardDetailModal";
 
 interface Props {
 	list: List;
@@ -25,9 +22,6 @@ const DEFAULT_CONFIG = { icon: "📋", accent: "border-t-slate-500", gradient: "
 export default function List({ list, cards, totalDone, openCardId, onToggleCard }: Props) {
 	const { ref, isDropTarget } = useDroppable({ id: list.id });
 	const config = LIST_CONFIG[list.id as string] ?? DEFAULT_CONFIG;
-
-	const [showAddCard, setShowAddCard] = useState(false);
-	const [editingCard, setEditingCard] = useState<Card | null>(null);
 
 	return (
 		<div
@@ -70,34 +64,11 @@ export default function List({ list, cards, totalDone, openCardId, onToggleCard 
 								card={card}
 								isOpen={openCardId === card.id}
 								onToggle={() => onToggleCard(card.id)}
-								onEdit={() => setEditingCard(card)}
 							/>
 						</div>
 					))
 				)}
 			</div>
-
-			{/* Add Card Button */}
-			<div className="p-3 pt-0 shrink-0">
-				<button
-					type="button"
-					onClick={() => setShowAddCard(true)}
-					className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-white/10 text-xs font-medium text-slate-500 hover:text-slate-300 hover:border-white/20 hover:bg-white/5 transition-all duration-200"
-				>
-					<svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none">
-						<path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-					</svg>
-					Add card
-				</button>
-			</div>
-
-			{/* Modals */}
-			{showAddCard && (
-				<AddCardModal listId={String(list.id)} onClose={() => setShowAddCard(false)} />
-			)}
-			{editingCard && (
-				<CardDetailModal card={editingCard} onClose={() => setEditingCard(null)} />
-			)}
 		</div>
 	);
 }

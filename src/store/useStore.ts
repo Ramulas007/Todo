@@ -27,10 +27,6 @@ export interface AppState {
 	// Board (per-user — keyed by ownerId in production; single for now)
 	boards: Record<string, Board>
 
-	// Undo/Redo history
-	history: Record<string, Board[]> // keyed by board owner ID
-	historyIndex: Record<string, number>
-
 	// ─── Auth actions ───────────────────────────────────────────────
 	login: (email: string, password: string) => boolean
 	logout: () => void
@@ -46,12 +42,6 @@ export interface AppState {
 	completeTask: (cardId: string, taskId: string) => void
 	updateCard: (cardId: string, updates: Partial<Card>) => void
 	deleteCard: (cardId: string) => void
-
-	// ─── Undo/Redo ──────────────────────────────────────────────────
-	undo: () => void
-	redo: () => void
-	canUndo: () => boolean
-	canRedo: () => boolean
 
 	// ─── Selectors (derived) ────────────────────────────────────────
 	getBoard: (ownerId?: string) => Board | undefined
@@ -283,8 +273,6 @@ SEED_USERS.forEach((u) => {
 	initialBoards[`board-${u.id}`] = createSeedBoard(u.id)
 })
 
-const MAX_HISTORY = 50
-
 // ─── Store ───────────────────────────────────────────────────────────
 export const useStore = create<AppState>()(
 	persist(
@@ -294,10 +282,6 @@ export const useStore = create<AppState>()(
 			currentUser: null,
 			users: SEED_USERS,
 			boards: initialBoards,
-
-			// Undo/Redo history
-			history: {},
-			historyIndex: {},
 
 			// ─── Auth ─────────────────────────────────────────────────
 			login: (email, password) => {
@@ -349,13 +333,6 @@ export const useStore = create<AppState>()(
 				const board = get().boards[boardKey]
 				if (!board) return
 
-				// Push to history before mutation
-				const history = get().history
-				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
-				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
-
 				const cardId = createId('card')
 				const ts = now()
 				const card: Card = {
@@ -375,8 +352,6 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, lists, cards: { ...board.cards, [cardId]: card } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
 				})
 			},
 
@@ -387,13 +362,6 @@ export const useStore = create<AppState>()(
 				const boardKey = `board-${currentUserId}`
 				const board = get().boards[boardKey]
 				if (!board) return
-
-				// Push to history before mutation
-				const history = get().history
-				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
-				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const ts = now()
 				const lists = board.lists.map((l) => {
@@ -430,8 +398,6 @@ export const useStore = create<AppState>()(
 							...get().boards,
 							[boardKey]: { ...board, lists, cards: { ...board.cards, [cardId]: updatedCard } },
 						},
-						history: { ...history, [currentUserId]: newHistory },
-						historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
 					})
 				}
 			},
@@ -446,13 +412,6 @@ export const useStore = create<AppState>()(
 
 				const card = board.cards[cardId]
 				if (!card) return
-
-				// Push to history before mutation
-				const history = get().history
-				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
-				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const ts = now()
 				const task = card.tasks.find((t) => t.id === taskId)
@@ -494,8 +453,6 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, lists, cards: { ...board.cards, [cardId]: updatedCard } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
 				})
 			},
 
@@ -509,13 +466,6 @@ export const useStore = create<AppState>()(
 
 				const card = board.cards[cardId]
 				if (!card) return
-
-				// Push to history before mutation
-				const history = get().history
-				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
-				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
 
 				const ts = now()
 				const updatedCard: Card = {
@@ -533,8 +483,6 @@ export const useStore = create<AppState>()(
 						...get().boards,
 						[boardKey]: { ...board, cards: { ...board.cards, [cardId]: updatedCard } },
 					},
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
 				})
 			},
 
@@ -546,13 +494,6 @@ export const useStore = create<AppState>()(
 				const board = get().boards[boardKey]
 				if (!board) return
 
-				// Push to history before mutation
-				const history = get().history
-				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
-				const newHistory = [...boardHistory.slice(0, currentIndex + 1), board].slice(-MAX_HISTORY)
-
 				const lists = board.lists.map((l) => ({
 					...l,
 					cardIds: l.cardIds.filter((id) => id !== cardId),
@@ -563,70 +504,7 @@ export const useStore = create<AppState>()(
 
 				set({
 					boards: { ...get().boards, [boardKey]: { ...board, lists, cards } },
-					history: { ...history, [currentUserId]: newHistory },
-					historyIndex: { ...historyIndex, [currentUserId]: newHistory.length - 1 },
 				})
-			},
-
-			// ─── Undo/Redo ──────────────────────────────────────────
-			undo: () => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
-
-				const history = get().history
-				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
-
-				if (currentIndex < 0) return
-
-				const restoredBoard = boardHistory[currentIndex]
-				const boardKey = `board-${currentUserId}`
-
-				set({
-					boards: { ...get().boards, [boardKey]: restoredBoard },
-					historyIndex: { ...historyIndex, [currentUserId]: currentIndex - 1 },
-				})
-			},
-
-			redo: () => {
-				const { currentUserId } = get()
-				if (!currentUserId) return
-
-				const history = get().history
-				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
-
-				if (currentIndex >= boardHistory.length - 1) return
-
-				const nextIndex = currentIndex + 2
-				if (nextIndex >= boardHistory.length) return
-
-				const restoredBoard = boardHistory[nextIndex]
-				const boardKey = `board-${currentUserId}`
-
-				set({
-					boards: { ...get().boards, [boardKey]: restoredBoard },
-					historyIndex: { ...historyIndex, [currentUserId]: nextIndex },
-				})
-			},
-
-			canUndo: () => {
-				const { currentUserId } = get()
-				if (!currentUserId) return false
-				const historyIndex = get().historyIndex
-				return (historyIndex[currentUserId] ?? -1) >= 0
-			},
-
-			canRedo: () => {
-				const { currentUserId } = get()
-				if (!currentUserId) return false
-				const history = get().history
-				const historyIndex = get().historyIndex
-				const boardHistory = history[currentUserId] ?? []
-				const currentIndex = historyIndex[currentUserId] ?? -1
-				return currentIndex < boardHistory.length - 2
 			},
 
 			// ─── Selectors ───────────────────────────────────────────

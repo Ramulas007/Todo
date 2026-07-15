@@ -5,12 +5,10 @@ export default function UserDashboard({
 	user,
 	onLogout,
 	onOpenTodo,
-	onOpenCalendar,
 }: {
 	user: { id: string; name: string; email: string; team: string; title: string; role: string; accent: string }
 	onLogout: () => void
 	onOpenTodo: () => void
-	onOpenCalendar?: () => void
 }) {
 	const metrics = useDashboardMetrics()
 
@@ -167,15 +165,6 @@ export default function UserDashboard({
 							>
 								<span>Open todo board</span>
 								<span className="text-indigo-400">→</span>
-							</button>
-							{onOpenCalendar && (
-								<button type="button" onClick={onOpenCalendar}
-									className="w-full flex items-center justify-between rounded-xl bg-violet-500/10 border border-violet-500/20 px-4 py-3 text-left text-sm font-medium text-violet-300 transition-all duration-200 hover:bg-violet-500/15 hover:-translate-y-0.5"
-								>
-									<span>Open calendar</span>
-									<span className="text-violet-400">→</span>
-								</button>
-							)}
 							</button>
 							<div className="rounded-xl border border-white/5 bg-black/20 p-4">
 								<p className="text-[10px] text-slate-500 uppercase tracking-wider">Today's focus</p>

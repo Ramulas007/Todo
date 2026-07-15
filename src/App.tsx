@@ -4,13 +4,11 @@ import Login from './screens/Login'
 import AdminPanel from './screens/AdminPanel'
 import Workspace from './screens/workSpace'
 import UserDashboard from './screens/UserDashboard'
-import CalendarView from './screens/CalendarView'
 
-type AppRoute = 'login' | 'admin' | 'dashboard' | 'todo' | 'calendar'
+type AppRoute = 'login' | 'admin' | 'dashboard' | 'todo'
 
 function getRouteFromPath(pathname: string): AppRoute {
 	if (pathname.startsWith('/admin')) return 'admin'
-	if (pathname.startsWith('/calendar')) return 'calendar'
 	if (pathname.startsWith('/todo')) return 'todo'
 	if (pathname.startsWith('/dashboard')) return 'dashboard'
 	return 'login'
@@ -19,7 +17,6 @@ function getRouteFromPath(pathname: string): AppRoute {
 function routeToPath(route: AppRoute) {
 	switch (route) {
 		case 'admin': return '/admin'
-		case 'calendar': return '/calendar'
 		case 'dashboard': return '/dashboard'
 		case 'todo': return '/todo'
 		default: return '/login'
@@ -69,16 +66,8 @@ export default function App() {
 		navigate('todo')
 	}
 
-	function handleOpenCalendar() {
-		navigate('calendar')
-	}
-
 	function handleBackToDashboard() {
 		navigate('dashboard')
-	}
-
-	function handleBackToBoard() {
-		navigate('todo')
 	}
 
 	// Redirect if not logged in
@@ -110,6 +99,7 @@ export default function App() {
 							addUser(u)
 						}
 					})
+					// Remove users not in the new list
 					users.forEach((u) => {
 						if (!nextUsers.find((nu) => nu.id === u.id)) {
 							removeUser(u.id)
@@ -121,10 +111,6 @@ export default function App() {
 		)
 	}
 
-	if (route === 'calendar') {
-		return <CalendarView onBackToBoard={handleBackToBoard} />
-	}
-
 	if (route === 'todo') {
 		return <Workspace onBackToDashboard={handleBackToDashboard} />
 	}
@@ -134,7 +120,6 @@ export default function App() {
 			user={currentUser}
 			onLogout={handleLogout}
 			onOpenTodo={handleOpenTodo}
-			onOpenCalendar={handleOpenCalendar}
 		/>
 	)
 }
