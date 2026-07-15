@@ -15,17 +15,50 @@ const PRIORITY_OPTIONS: { value: Priority; label: string; color: string; bg: str
 	{ value: "urgent", label: "Urgent", color: "text-rose-400", bg: "bg-rose-500/15" },
 ];
 
+type Tab = "details" | "tasks" | "time" | "comments" | "activity";
+
+function formatTimeAgo(iso: string) {
+	const ms = Date.now() - new Date(iso).getTime();
+	const mins = Math.floor(ms / 60000);
+	if (mins < 1) return "Just now";
+	if (mins < 60) return `${mins}m ago`;
+	const hrs = Math.floor(mins / 60);
+	if (hrs < 24) return `${hrs}h ago`;
+	return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function formatDuration(mins: number) {
+	if (mins < 60) return `${mins}m`;
+	const h = Math.floor(mins / 60);
+	const m = mins % 60;
+	return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 export default function CardDetailModal({ card, onClose }: Props) {
 	const updateCard = useStore((s) => s.updateCard);
 	const completeTask = useStore((s) => s.completeTask);
 	const deleteCard = useStore((s) => s.deleteCard);
+	const logTime = useStore((s) => s.logTime);
+	const deleteTimeEntry = useStore((s) => s.deleteTimeEntry);
+	const addComment = useStore((s) => s.addComment);
+	const deleteComment = useStore((s) => s.deleteComment);
+	const board = useStore((s) => s.getBoard());
+	const users = useStore((s) => s.users);
+	const currentUserId = useStore((s) => s.currentUserId);
 
 	const [title, setTitle] = useState(card.title);
 	const [description, setDescription] = useState(card.description);
 	const [priority, setPriority] = useState<Priority>(card.priority ?? "medium");
 	const [dueDate, setDueDate] = useState(card.dueDate ?? "");
 	const [newTaskTitle, setNewTaskTitle] = useState("");
-	const [activeTab, setActiveTab] = useState<"details" | "tasks" | "activity">("details");
+	const [activeTab, setActiveTab] = useState<Tab>("details");
+
+	// Time tracking state
+	const [timeMinutes, setTimeMinutes] = useState("");
+	const [timeDesc, setTimeDesc] = useState("");
+
+	// Comment state
+	const [commentText, setCommentText] = useState("");
 
 	useEffect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
@@ -65,9 +98,31 @@ export default function CardDetailModal({ card, onClose }: Props) {
 		setNewTaskTitle("");
 	}
 
+	function handleAddTime() {
+		const mins = parseInt(timeMinutes);
+		if (!mins || mins <= 0) return;
+		logTime(card.id, {
+			date: new Date().toISOString(),
+			duration: mins,
+			description: timeDesc.trim() || "Manual entry",
+			source: "manual",
+		});
+		setTimeMinutes("");
+		setTimeDesc("");
+	}
+
+	function handleAddComment() {
+		if (!commentText.trim()) return;
+		addComment(card.id, commentText.trim());
+		setCommentText("");
+	}
+
+	const totalTime = (card.timeEntries ?? []).reduce((sum, e) => sum + e.duration, 0);
 	const total = card.tasks.length;
 	const done = card.tasks.filter((t) => t.isCompleted).length;
 	const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+	const tabs: Tab[] = ["details", "tasks", "time", "comments", "activity"];
 
 	return (
 		<div
@@ -126,13 +181,13 @@ export default function CardDetailModal({ card, onClose }: Props) {
 				</div>
 
 				{/* Tabs */}
-				<div className="flex gap-1 px-6 pt-3 shrink-0">
-					{(["details", "tasks", "activity"] as const).map((tab) => (
+				<div className="flex gap-1 px-6 pt-3 shrink-0 overflow-x-auto">
+					{tabs.map((tab) => (
 						<button
 							key={tab}
 							type="button"
 							onClick={() => setActiveTab(tab)}
-							className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize
+							className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize whitespace-nowrap
 								${activeTab === tab ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300 hover:bg-white/5"}`}
 						>
 							{tab}
@@ -144,7 +199,6 @@ export default function CardDetailModal({ card, onClose }: Props) {
 				<div className="flex-1 overflow-y-auto px-6 py-4">
 					{activeTab === "details" && (
 						<div className="space-y-5">
-							{/* Description */}
 							<div>
 								<label className="block text-xs font-medium text-slate-400 mb-2">Description</label>
 								<textarea
@@ -155,8 +209,6 @@ export default function CardDetailModal({ card, onClose }: Props) {
 									className="w-full rounded-xl bg-[#22263a] border border-white/5 px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none transition-all duration-200 focus:border-indigo-500/50 resize-none"
 								/>
 							</div>
-
-							{/* Priority + Due Date */}
 							<div className="grid grid-cols-2 gap-4">
 								<div>
 									<label className="block text-xs font-medium text-slate-400 mb-2">Priority</label>
@@ -184,8 +236,6 @@ export default function CardDetailModal({ card, onClose }: Props) {
 									/>
 								</div>
 							</div>
-
-							{/* Tags */}
 							{card.tags && card.tags.length > 0 && (
 								<div>
 									<label className="block text-xs font-medium text-slate-400 mb-2">Tags</label>
@@ -203,7 +253,6 @@ export default function CardDetailModal({ card, onClose }: Props) {
 
 					{activeTab === "tasks" && (
 						<div className="space-y-3">
-							{/* Progress */}
 							{total > 0 && (
 								<div>
 									<div className="flex items-center justify-between mb-1.5">
@@ -218,8 +267,6 @@ export default function CardDetailModal({ card, onClose }: Props) {
 									</div>
 								</div>
 							)}
-
-							{/* Task list */}
 							<div className="space-y-1">
 								{card.tasks.map((task) => (
 									<TaskItem
@@ -229,8 +276,6 @@ export default function CardDetailModal({ card, onClose }: Props) {
 									/>
 								))}
 							</div>
-
-							{/* Add task */}
 							<div className="flex gap-2 pt-2">
 								<input
 									type="text"
@@ -252,6 +297,135 @@ export default function CardDetailModal({ card, onClose }: Props) {
 						</div>
 					)}
 
+					{activeTab === "time" && (
+						<div className="space-y-4">
+							<div className="flex items-center justify-between">
+								<p className="text-sm text-slate-400">Total logged: <span className="text-white font-semibold">{formatDuration(totalTime)}</span></p>
+								<span className="text-[10px] text-slate-600">{(card.timeEntries ?? []).length} entries</span>
+							</div>
+
+							{/* Add time form */}
+							<div className="rounded-xl border border-white/5 bg-[#22263a]/50 p-3 space-y-2">
+								<div className="flex gap-2">
+									<input
+										type="number"
+										min="1"
+										value={timeMinutes}
+										onChange={(e) => setTimeMinutes(e.target.value)}
+										placeholder="Min"
+										className="w-20 rounded-lg bg-[#22263a] border border-white/5 px-3 py-2 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500/50"
+									/>
+									<input
+										type="text"
+										value={timeDesc}
+										onChange={(e) => setTimeDesc(e.target.value)}
+										onKeyDown={(e) => { if (e.key === "Enter") handleAddTime(); }}
+										placeholder="What did you work on?"
+										className="flex-1 rounded-lg bg-[#22263a] border border-white/5 px-3 py-2 text-xs text-white placeholder:text-slate-600 outline-none focus:border-indigo-500/50"
+									/>
+									<button
+										type="button"
+										onClick={handleAddTime}
+										disabled={!timeMinutes || parseInt(timeMinutes) <= 0}
+										className="px-3 py-2 rounded-lg bg-indigo-500 text-xs font-medium text-white hover:bg-indigo-400 disabled:opacity-40 transition-colors"
+									>
+										Add
+									</button>
+								</div>
+							</div>
+
+							{/* Time entries list */}
+							<div className="space-y-1.5">
+								{(card.timeEntries ?? []).length === 0 ? (
+									<p className="text-xs text-slate-500 text-center py-4">No time logged yet</p>
+								) : (
+									[...((card.timeEntries ?? []) as any[])].reverse().map((entry: any) => (
+										<div key={entry.id} className="group flex items-center gap-3 p-2 rounded-lg hover:bg-white/3">
+											<span className="text-xs text-slate-500 shrink-0">{formatDuration(entry.duration)}</span>
+											<span className="text-xs text-slate-300 flex-1 truncate">{entry.description}</span>
+											<span className={`text-[10px] px-1.5 py-0.5 rounded ${entry.source === "pomodoro" ? "bg-indigo-500/15 text-indigo-400" : "bg-white/5 text-slate-500"}`}>
+												{entry.source}
+											</span>
+											<span className="text-[10px] text-slate-600 shrink-0">{formatTimeAgo(entry.date)}</span>
+											<button
+												type="button"
+												onClick={() => deleteTimeEntry(card.id, entry.id)}
+												className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-400 transition-all"
+											>
+												<svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+													<path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+												</svg>
+											</button>
+										</div>
+									))
+								)}
+							</div>
+						</div>
+					)}
+
+					{activeTab === "comments" && (
+						<div className="space-y-4">
+							{/* Comments list */}
+							<div className="space-y-3">
+								{(card.comments ?? []).length === 0 ? (
+									<p className="text-xs text-slate-500 text-center py-4">No comments yet</p>
+								) : (
+									(card.comments ?? []).map((comment) => {
+										const author = users.find((u) => u.id === comment.authorId);
+										const isOwn = comment.authorId === currentUserId;
+										return (
+											<div key={comment.id} className="group p-3 rounded-xl bg-[#22263a]/50 border border-white/5">
+												<div className="flex items-center justify-between mb-1.5">
+													<div className="flex items-center gap-2">
+														<div className="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] font-bold text-indigo-400">
+															{author?.name?.[0] ?? "?"}
+														</div>
+														<span className="text-xs font-medium text-slate-300">{author?.name ?? "Unknown"}</span>
+													</div>
+													<div className="flex items-center gap-2">
+														<span className="text-[10px] text-slate-600">{formatTimeAgo(comment.createdAt)}</span>
+														{isOwn && (
+															<button
+																type="button"
+																onClick={() => deleteComment(card.id, comment.id)}
+																className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-rose-400 transition-all"
+															>
+																<svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
+																	<path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+																</svg>
+															</button>
+														)}
+													</div>
+												</div>
+												<p className="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">{comment.text}</p>
+											</div>
+										);
+									})
+								)}
+							</div>
+
+							{/* Add comment */}
+							<div className="flex gap-2">
+								<textarea
+									value={commentText}
+									onChange={(e) => setCommentText(e.target.value)}
+									onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddComment(); }}
+									placeholder="Add a comment... (Ctrl+Enter to send)"
+									rows={2}
+									className="flex-1 rounded-xl bg-[#22263a] border border-white/5 px-3 py-2 text-xs text-white placeholder:text-slate-600 outline-none resize-none focus:border-indigo-500/50"
+								/>
+								<button
+									type="button"
+									onClick={handleAddComment}
+									disabled={!commentText.trim()}
+									className="self-end px-3 py-2 rounded-xl bg-indigo-500 text-xs font-medium text-white hover:bg-indigo-400 disabled:opacity-40 transition-colors"
+								>
+									Post
+								</button>
+							</div>
+						</div>
+					)}
+
 					{activeTab === "activity" && (
 						<div className="space-y-3">
 							{card.history.length === 0 ? (
@@ -261,15 +435,9 @@ export default function CardDetailModal({ card, onClose }: Props) {
 									const msAgo = Date.now() - new Date(event.timestamp).getTime();
 									const hoursAgo = Math.floor(msAgo / (1000 * 60 * 60));
 									const time = hoursAgo < 1 ? "Just now" : hoursAgo < 24 ? `${hoursAgo}h ago` : `${Math.floor(hoursAgo / 24)}d ago`;
-
 									const eventIcons: Record<string, string> = {
-										created: "✨",
-										moved: "→",
-										completed: "✅",
-										task_completed: "☑️",
-										edited: "✏️",
+										created: "✨", moved: "→", completed: "✅", task_completed: "☑️", edited: "✏️",
 									};
-
 									return (
 										<div key={i} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/3">
 											<span className="text-sm mt-0.5">{eventIcons[event.type] ?? "•"}</span>

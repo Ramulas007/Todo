@@ -1,18 +1,8 @@
 import { useMemo } from 'react'
 import { useStore } from '../store/useStore'
-import type { Card, CardEvent } from '../types/board.types'
+import type { CardEvent } from '../types/board.types'
 
 // ─── Time helpers ────────────────────────────────────────────────────
-function daysAgo(n: number) {
-	return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString()
-}
-
-function startOfDay(date: Date) {
-	const d = new Date(date)
-	d.setHours(0, 0, 0, 0)
-	return d
-}
-
 function getDayOfWeek(date: string) {
 	return new Date(date).getDay() // 0=Sun, 1=Mon, ...
 }
@@ -81,9 +71,9 @@ export function useDashboardMetrics(ownerId?: string): DashboardMetrics {
 					{ label: 'Sun', value: 0 },
 				],
 				trendLine: Array(14).fill(0),
-				pipelineHealth: board.lists.map((l) => ({
+				pipelineHealth: board?.lists.map((l) => ({
 					label: l.title, value: 0, tone: 'bg-slate-400',
-				})),
+				})) ?? [],
 				recentActivity: [],
 				quickActionTip: 'No cards yet — create your first task to get started.',
 				isEmpty: true,
@@ -142,7 +132,6 @@ export function useDashboardMetrics(ownerId?: string): DashboardMetrics {
 		}
 
 		// ─── Weekly activity (last 7 days, bucketed by day-of-week) ──
-		const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 		const weeklyBuckets = Array(7).fill(0)
 
 		cards.forEach((card) => {
@@ -244,7 +233,7 @@ export function useDashboardMetrics(ownerId?: string): DashboardMetrics {
 		// ─── Quick action tip ────────────────────────────────────────
 		const highPriority = cards.filter((c) => c.priority === 'high' || c.priority === 'urgent')
 		const overdue = cards.filter((c) => c.dueDate && new Date(c.dueDate) < new Date() && !c.completedAt)
-		let quickActionTip = ''
+		let quickActionTip: string
 		if (overdue.length > 0) {
 			quickActionTip = `You have ${overdue.length} overdue card${overdue.length > 1 ? 's' : ''} — focus on those first.`
 		} else if (highPriority.length > 0 && todoCards > 0) {

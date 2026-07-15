@@ -57,7 +57,7 @@ CardEvent {
 |-------|-----------|-------------|
 | `/login` | `Login` | Authentication |
 | `/dashboard` | `UserDashboard` | Stats, activity, quick actions |
-| `/todo` | `Workspace` → `Board` | Kanban board with drag-and-drop |
+| `/todo` | `AuraLayout` | AuraTask workspace with sidebar, task cards, timer |
 | `/admin` | `AdminPanel` | User management (admin only) |
 
 ### Derived Metrics

@@ -1,25 +1,50 @@
 import { useEffect, useState } from 'react'
 import { useStore } from './store/useStore'
-import Login from './screens/Login'
+import { usePomodoro } from './hooks/usePomodoro'
+import Homepage from './screens/Homepage'
+import LoginNew from './screens/LoginNew'
 import AdminPanel from './screens/AdminPanel'
-import Workspace from './screens/workSpace'
+import AuraLayout from './screens/aura/AuraLayout'
 import UserDashboard from './screens/UserDashboard'
+import CalendarView from './screens/CalendarView'
+import TodayView from './screens/TodayView'
+import FocusView from './screens/FocusView'
+import QuickCapture from './screens/board_components/QuickCapture'
+import FeaturesPage from './screens/FeaturesPage'
+import PricingPage from './screens/PricingPage'
+import AboutPage from './screens/AboutPage'
 
-type AppRoute = 'login' | 'admin' | 'dashboard' | 'todo'
+type AppRoute = 'home' | 'login' | 'admin' | 'dashboard' | 'todo' | 'calendar' | 'today' | 'focus' | 'features' | 'pricing' | 'about'
 
 function getRouteFromPath(pathname: string): AppRoute {
+	if (pathname === '/' || pathname === '/home') return 'home'
+	if (pathname.startsWith('/login')) return 'login'
 	if (pathname.startsWith('/admin')) return 'admin'
+	if (pathname.startsWith('/calendar')) return 'calendar'
+	if (pathname.startsWith('/today')) return 'today'
+	if (pathname.startsWith('/focus')) return 'focus'
 	if (pathname.startsWith('/todo')) return 'todo'
 	if (pathname.startsWith('/dashboard')) return 'dashboard'
-	return 'login'
+	if (pathname.startsWith('/features')) return 'features'
+	if (pathname.startsWith('/pricing')) return 'pricing'
+	if (pathname.startsWith('/about')) return 'about'
+	return 'home'
 }
 
 function routeToPath(route: AppRoute) {
 	switch (route) {
+		case 'home': return '/'
+		case 'login': return '/login'
 		case 'admin': return '/admin'
+		case 'calendar': return '/calendar'
+		case 'today': return '/today'
+		case 'focus': return '/focus'
 		case 'dashboard': return '/dashboard'
 		case 'todo': return '/todo'
-		default: return '/login'
+		case 'features': return '/features'
+		case 'pricing': return '/pricing'
+		case 'about': return '/about'
+		default: return '/'
 	}
 }
 
@@ -33,6 +58,8 @@ export default function App() {
 	const removeUser = useStore((s) => s.removeUser)
 
 	const [route, setRoute] = useState<AppRoute>(() => getRouteFromPath(window.location.pathname))
+	const [showQuickCapture, setShowQuickCapture] = useState(false)
+	const pomodoro = usePomodoro()
 
 	useEffect(() => {
 		function handlePopState() {
@@ -42,8 +69,28 @@ export default function App() {
 		return () => window.removeEventListener('popstate', handlePopState)
 	}, [])
 
+	// Global Ctrl+N for Quick Capture
+	useEffect(() => {
+		function handleKeyDown(e: KeyboardEvent) {
+			if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+				e.preventDefault()
+				if (currentUser && route !== 'login' && route !== 'home' && route !== 'loginnew') {
+					setShowQuickCapture(true)
+				}
+			}
+		}
+		document.addEventListener('keydown', handleKeyDown)
+		return () => document.removeEventListener('keydown', handleKeyDown)
+	}, [currentUser, route])
+
 	function navigate(r: AppRoute) {
 		window.history.pushState({}, '', routeToPath(r))
+		setRoute(r)
+	}
+
+	function navigateTo(path: string) {
+		const r = getRouteFromPath(path)
+		window.history.pushState({}, '', path)
 		setRoute(r)
 	}
 
@@ -59,21 +106,29 @@ export default function App() {
 
 	function handleLogout() {
 		logout()
-		navigate('login')
+		navigate('home')
 	}
 
 	function handleOpenTodo() {
 		navigate('todo')
 	}
 
-	function handleBackToDashboard() {
-		navigate('dashboard')
+	function handleOpenCalendar() {
+		navigate('calendar')
 	}
 
-	// Redirect if not logged in
+	function handleOpenToday() {
+		navigate('today')
+	}
+
+	function handleBackToBoard() {
+		navigate('todo')
+	}
+
+	// Redirect if not logged in (except home and login)
 	useEffect(() => {
-		if (!currentUser && route !== 'login') {
-			navigate('login')
+		if (!currentUser && route !== 'login' && route !== 'home') {
+			navigate('home')
 		}
 		if (currentUser && route === 'login') {
 			const nextRoute = currentUser.role === 'admin' ? 'admin' : 'dashboard'
@@ -81,8 +136,29 @@ export default function App() {
 		}
 	}, [currentUser, route])
 
+	// Public routes (no auth required)
+	if (route === 'home') {
+		return <Homepage onNavigate={navigateTo} />
+	}
+
+	if (route === 'login') {
+		return <LoginNew onNavigate={navigateTo} />
+	}
+
+	if (route === 'features') {
+		return <FeaturesPage onNavigate={navigateTo} />
+	}
+
+	if (route === 'pricing') {
+		return <PricingPage onNavigate={navigateTo} />
+	}
+
+	if (route === 'about') {
+		return <AboutPage onNavigate={navigateTo} />
+	}
+
 	if (!currentUser) {
-		return <Login onLogin={handleLogin} />
+		return <Homepage onNavigate={navigateTo} />
 	}
 
 	if (route === 'admin' && currentUser.role === 'admin') {
@@ -99,7 +175,6 @@ export default function App() {
 							addUser(u)
 						}
 					})
-					// Remove users not in the new list
 					users.forEach((u) => {
 						if (!nextUsers.find((nu) => nu.id === u.id)) {
 							removeUser(u.id)
@@ -111,15 +186,47 @@ export default function App() {
 		)
 	}
 
+	if (route === 'calendar') {
+		return (
+			<>
+				<CalendarView onBackToBoard={handleBackToBoard} />
+				{showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+			</>
+		)
+	}
+
+	if (route === 'today') {
+		return (
+			<>
+				<TodayView onBackToBoard={handleBackToBoard} />
+				{showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+			</>
+		)
+	}
+
+	if (route === 'focus') {
+		return <FocusView onBack={handleBackToBoard} pomodoro={pomodoro} />
+	}
+
 	if (route === 'todo') {
-		return <Workspace onBackToDashboard={handleBackToDashboard} />
+		return (
+			<>
+				<AuraLayout />
+				{showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+			</>
+		)
 	}
 
 	return (
-		<UserDashboard
-			user={currentUser}
-			onLogout={handleLogout}
-			onOpenTodo={handleOpenTodo}
-		/>
+		<>
+			<UserDashboard
+				user={currentUser}
+				onLogout={handleLogout}
+				onOpenTodo={handleOpenTodo}
+				onOpenCalendar={handleOpenCalendar}
+				onOpenToday={handleOpenToday}
+			/>
+			{showQuickCapture && <QuickCapture onClose={() => setShowQuickCapture(false)} />}
+		</>
 	)
 }

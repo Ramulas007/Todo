@@ -2,7 +2,7 @@ import { useEffect, useCallback } from "react";
 
 interface ShortcutConfig {
 	key: string;
-.ctrl?: boolean;
+ctrl?: boolean;
 	shift?: boolean;
 	alt?: boolean;
 	action: () => void;
