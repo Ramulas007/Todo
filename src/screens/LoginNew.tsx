@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff } from "lucide-react";
 import BlobBackground from "../components/BlobBackground";
+import BackButton from "../components/BackButton";
 import { useStore } from "../store/useStore";
 
 const GOOGLE_CLIENT_ID = "641369217488-1sf75tdga483bso1egddbpjfcfabf8so.apps.googleusercontent.com";
@@ -112,15 +113,15 @@ export default function LoginNew({ onNavigate }: Props) {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#050508] flex items-center justify-center relative overflow-hidden">
+		<div className="min-h-screen bg-[#050508] flex items-center justify-center relative overflow-x-hidden">
 			<BlobBackground />
 
 			<div className="fixed top-[10%] left-[5%] w-64 h-64 rounded-full bg-gradient-to-br from-orange-500/12 to-amber-500/8 blur-[100px] pointer-events-none" />
 			<div className="fixed bottom-[15%] right-[10%] w-48 h-48 rounded-full bg-gradient-to-br from-blue-500/12 to-indigo-500/8 blur-[100px] pointer-events-none" />
 
 			{/* Logo */}
-			<div className="absolute top-6 left-6 z-10 cursor-pointer" onClick={() => onNavigate("/")}>
-				<div className="flex items-center gap-3">
+			<div className="absolute top-6 left-6 z-10 flex items-center gap-3">
+				<div className="cursor-pointer flex items-center gap-3" onClick={() => onNavigate("/")}>
 					<div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
 						<svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
 							<path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -128,6 +129,7 @@ export default function LoginNew({ onNavigate }: Props) {
 					</div>
 					<span className="text-lg font-bold text-white">AuraTask</span>
 				</div>
+				<BackButton />
 			</div>
 
 			{/* Login card */}
@@ -193,13 +195,6 @@ export default function LoginNew({ onNavigate }: Props) {
 					<div className="mt-4 text-center">
 						<button className="text-xs text-white/40 hover:text-white/60 transition-colors">
 							Forgot Password?
-						</button>
-					</div>
-
-					<div className="mt-4 text-center text-sm text-white/40">
-						Don't have an account yet?{" "}
-						<button onClick={() => onNavigate("/signup")} className="text-white font-medium hover:text-white/80 transition-colors">
-							Sign Up
 						</button>
 					</div>
 

@@ -462,7 +462,11 @@ export const useStore = create<AppState>()(
 				})
 			},
 
-			setAdminImpersonate: (userId) => set({ adminImpersonateId: userId }),
+			setAdminImpersonate: (userId) => {
+				const { currentUser } = get()
+				if (userId !== null && (!currentUser || currentUser.role !== 'admin')) return
+				set({ adminImpersonateId: userId })
+			},
 
 			// ─── Board actions ───────────────────────────────────────
 			createCard: (listId, cardData) => {

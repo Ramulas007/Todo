@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useStore } from "../../store/useStore";
 import type { Priority } from "../../types/board.types";
+import { useBreakpoint } from "../../hooks/useBreakpoint";
 
 const PRIORITIES: Priority[] = ["low", "medium", "high", "urgent"];
 const PRIORITY_LABELS: Record<Priority, string> = { low: "Low", medium: "Med", high: "High", urgent: "Urgent" };
@@ -11,13 +12,22 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 	urgent: "text-red-400",
 };
 
-export default function AuraHeader() {
+interface Props {
+	onHamburgerClick?: () => void;
+	onPanelClick?: () => void;
+}
+
+export default function AuraHeader({ onHamburgerClick, onPanelClick }: Props) {
 	const addCard = useStore((s) => s.addCard);
 	const boards = useStore((s) => s.boards);
 	const currentUserId = useStore((s) => s.currentUserId);
 	const [newTitle, setNewTitle] = useState("");
 	const [newPriority, setNewPriority] = useState<Priority>("medium");
 	const [showForm, setShowForm] = useState(false);
+	const bp = useBreakpoint();
+	const isMobile = bp === "mobile";
+	const isTablet = bp === "tablet";
+	const isCompact = isMobile || isTablet;
 
 	const board = currentUserId ? boards[`board-${currentUserId}`] : undefined;
 	const firstListId = board?.lists[0]?.id;
@@ -36,35 +46,59 @@ export default function AuraHeader() {
 	}
 
 	return (
-		<div className="glass rounded-2xl px-6 py-4">
-			<div className="flex items-center justify-between">
-				<div>
-					<h1 className="text-2xl font-bold text-white">Today's Focus</h1>
-					<p className="text-sm text-white/40 mt-0.5">
-						{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-					</p>
+		<div className="glass rounded-2xl px-4 sm:px-6 py-3 sm:py-4">
+			<div className="flex items-center justify-between gap-3">
+				<div className="flex items-center gap-3 min-w-0">
+					{/* Hamburger for mobile/tablet */}
+					{isCompact && (
+						<button type="button" onClick={onHamburgerClick}
+							className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:text-white/80 hover:bg-white/10 transition-all shrink-0">
+							<svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
+								<path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+							</svg>
+						</button>
+					)}
+					<div className="min-w-0">
+						<h1 className={`font-bold text-white truncate ${isMobile ? "text-lg" : "text-2xl"}`}>Today's Focus</h1>
+						<p className="text-sm text-white/40 mt-0.5 truncate">
+							{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+						</p>
+					</div>
 				</div>
 
-				<div className="flex items-center gap-3">
-					<button type="button" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all duration-150">
-						<svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
-							<path d="M12 5.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM13.5 13.5c0 2.5-5.5 3.5-7 3.5s-7-1-7-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-						</svg>
-						Notifications
-					</button>
+				<div className="flex items-center gap-2 sm:gap-3 shrink-0">
+					{!isMobile && (
+						<button type="button" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all duration-150">
+							<svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
+								<path d="M12 5.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0zM13.5 13.5c0 2.5-5.5 3.5-7 3.5s-7-1-7-3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+							</svg>
+							Notifications
+						</button>
+					)}
 
 					<button
 						type="button"
 						onClick={() => setShowForm(!showForm)}
-						className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 border border-white/20 text-sm font-medium text-white hover:bg-white/15 transition-all duration-150"
+						className={`flex items-center gap-2 rounded-full bg-white/10 border border-white/20 text-sm font-medium text-white hover:bg-white/15 transition-all duration-150 ${isMobile ? "px-3 py-1.5 text-xs" : "px-4 py-1.5"}`}
 					>
 						<svg className="w-3.5 h-3.5" viewBox="0 0 12 12" fill="none">
 							<path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
 						</svg>
-						Add Task
+						{!isMobile && "Add Task"}
 					</button>
 
-					<div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold">
+					{/* Panel toggle for mobile/tablet */}
+					{isCompact && (
+						<button type="button" onClick={onPanelClick}
+							className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/50 hover:text-white/80 hover:bg-white/10 transition-all shrink-0">
+							<svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
+								<rect x="1" y="2" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.2"/>
+								<path d="M10 2v12" stroke="currentColor" strokeWidth="1.2"/>
+							</svg>
+						</button>
+					)}
+
+					<div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
 						AR
 					</div>
 				</div>

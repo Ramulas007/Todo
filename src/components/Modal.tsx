@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 
 interface ModalProps {
@@ -22,6 +23,7 @@ export default function Modal({
 }: ModalProps) {
 	const panelRef = useRef<HTMLDivElement>(null);
 	const previouslyFocused = useRef<HTMLElement | null>(null);
+	const prefersReduced = useReducedMotion();
 
 	useEffect(() => {
 		previouslyFocused.current = document.activeElement as HTMLElement | null;
@@ -64,21 +66,37 @@ export default function Modal({
 	}, [onClose]);
 
 	return (
-		<div
-			className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 animate-fade-in"
-			onMouseDown={(e) => {
-				if (dismissOnBackdrop && e.target === e.currentTarget) onClose();
-			}}
-		>
-			<div
-				ref={panelRef}
-				role="dialog"
-				aria-modal="true"
-				aria-labelledby={titleId}
-				className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1d27] p-5 shadow-2xl shadow-black/40 animate-scale-in"
+		<AnimatePresence>
+			<motion.div
+				key="modal-backdrop"
+				initial={prefersReduced ? false : { opacity: 0 }}
+				animate={{ opacity: 1 }}
+				exit={prefersReduced ? undefined : { opacity: 0 }}
+				transition={{ duration: 0.25 }}
+				className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md px-4"
+				onMouseDown={(e) => {
+					if (dismissOnBackdrop && e.target === e.currentTarget) onClose();
+				}}
 			>
-				{children}
-			</div>
-		</div>
+				<motion.div
+					ref={panelRef}
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby={titleId}
+					initial={prefersReduced ? false : { opacity: 0, scale: 0.7, y: 40 }}
+					animate={{ opacity: 1, scale: 1, y: 0 }}
+					exit={prefersReduced ? undefined : { opacity: 0, scale: 0.85, y: 20 }}
+					transition={{
+						type: "spring",
+						damping: 20,
+						stiffness: 300,
+						mass: 0.8,
+					}}
+					className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#1a1d27] p-5 shadow-2xl shadow-black/50"
+				>
+					{children}
+				</motion.div>
+			</motion.div>
+		</AnimatePresence>
 	);
 }

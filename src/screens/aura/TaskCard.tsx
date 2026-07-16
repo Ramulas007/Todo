@@ -1,3 +1,4 @@
+import { motion, useReducedMotion } from "framer-motion";
 import { useStore } from "../../store/useStore";
 import type { Card } from "../../types/board.types";
 
@@ -46,6 +47,7 @@ function getAge(createdAt: string): string {
 export default function TaskCard({ card, selectMode, selected, onSelectToggle }: Props) {
 	const openPanel = useStore((s) => s.openPanel);
 	const toggleComplete = useStore((s) => s.toggleComplete);
+	const prefersReduced = useReducedMotion();
 
 	const total = card.tasks.length;
 	const done = card.tasks.filter((t) => t.isCompleted).length;
@@ -57,11 +59,23 @@ export default function TaskCard({ card, selectMode, selected, onSelectToggle }:
 	const isCompleted = !!card.completedAt;
 
 	return (
-		<div
+		<motion.div
+			layout
+			layoutId={card.id}
+			initial={prefersReduced ? false : { opacity: 0, y: 20, scale: 0.95 }}
+			animate={{ opacity: 1, y: 0, scale: 1 }}
+			whileHover={prefersReduced ? undefined : { scale: 1.02, y: -2 }}
+			whileTap={prefersReduced ? undefined : { scale: 0.98 }}
+			transition={{
+				layout: { type: "spring", damping: 20, stiffness: 250 },
+				opacity: { duration: 0.3 },
+				y: { type: "spring", damping: 15, stiffness: 200 },
+				scale: { duration: 0.2 },
+			}}
 			onClick={() => selectMode ? onSelectToggle?.(card.id) : openPanel(card.id)}
 			className={`glass-card rounded-xl p-3.5 border-l-[3px] cursor-pointer
-				hover:bg-white/[0.06] hover:border-white/[0.12] transition-all duration-150
-				${borderColor} ${isCompleted ? "opacity-50" : ""} ${selected ? "ring-1 ring-indigo-500/50 bg-indigo-500/5" : ""}
+				hover:bg-white/[0.06] hover:border-white/[0.12] hover:shadow-lg hover:shadow-indigo-500/10
+				${borderColor} ${isCompleted ? "opacity-50" : ""} ${selected ? "ring-2 ring-indigo-500/50 bg-indigo-500/10" : ""}
 			`}
 		>
 			{/* Title row */}
@@ -75,16 +89,20 @@ export default function TaskCard({ card, selectMode, selected, onSelectToggle }:
 						onClick={(e) => e.stopPropagation()}
 					/>
 				) : (
-					<input
-						type="checkbox"
-						checked={isCompleted}
-						onChange={(e) => {
+					<motion.div
+						whileTap={prefersReduced ? undefined : { scale: 0.85 }}
+						onClick={(e) => {
 							e.stopPropagation();
 							toggleComplete(card.id);
 						}}
-						className="checkbox-custom"
-						onClick={(e) => e.stopPropagation()}
-					/>
+					>
+						<input
+							type="checkbox"
+							checked={isCompleted}
+							readOnly
+							className="checkbox-custom"
+						/>
+					</motion.div>
 				)}
 				<span className={`text-sm font-medium flex-1 ${isCompleted ? "text-white/40 line-through" : "text-white"}`}>
 					{card.title}
@@ -141,6 +159,6 @@ export default function TaskCard({ card, selectMode, selected, onSelectToggle }:
 					)}
 				</div>
 			</div>
-		</div>
+		</motion.div>
 	);
 }

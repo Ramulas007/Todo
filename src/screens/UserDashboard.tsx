@@ -3,6 +3,7 @@ import { useStore } from '../store/useStore'
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics'
 import BlobBackground from '../components/BlobBackground'
 import ProfilePanel from '../components/ProfilePanel'
+import BackButton from '../components/BackButton'
 
 export default function UserDashboard({
 	user,
@@ -25,7 +26,7 @@ export default function UserDashboard({
 	const [showProfile, setShowProfile] = useState(false)
 
 	return (
-		<div className="min-h-screen bg-[#0a0a12] text-white relative overflow-hidden">
+		<div className="min-h-screen bg-[#0a0a12] text-white relative overflow-x-hidden">
 			<BlobBackground />
 
 			{/* Subtle GSAP blobs */}
@@ -36,11 +37,14 @@ export default function UserDashboard({
 				{/* Header */}
 				<div className="glass border-b border-white/[0.06] rounded-none">
 					<div className="max-w-7xl mx-auto flex items-center justify-between px-8 py-5">
-						<div>
-							<p className="text-[10px] uppercase tracking-[0.25em] text-white/30 font-medium">Dashboard</p>
-							<h1 className="mt-1 text-2xl font-bold text-white">
-								Welcome back, <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">{user.name}</span>
-							</h1>
+						<div className="flex items-center gap-3">
+							<BackButton onClick={() => window.location.href = '/'} />
+							<div>
+								<p className="text-[10px] uppercase tracking-[0.25em] text-white/30 font-medium">Dashboard</p>
+								<h1 className="mt-1 text-2xl font-bold text-white">
+									Welcome back, <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">{user.name}</span>
+								</h1>
+							</div>
 						</div>
 						<div className="flex items-center gap-3">
 							<button type="button" onClick={onOpenToday}

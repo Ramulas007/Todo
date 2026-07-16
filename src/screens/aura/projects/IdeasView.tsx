@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, Suspense, lazy } from "react";
 import { useStore } from "../../../store/useStore";
-import SketchCanvas from "./SketchCanvas";
-import MindMap from "./MindMap";
+
+const SketchCanvas = lazy(() => import("./SketchCanvas"));
+const MindMap = lazy(() => import("./MindMap"));
 
 type Tab = "canvas" | "mindmap";
 
@@ -76,25 +77,27 @@ export default function IdeasView() {
 
 			{/* Content */}
 			<div className="flex-1 min-h-0">
-				{tab === "canvas" ? (
-					<SketchCanvas
-						data={activeCard?.sketchData}
-						onSave={(data) => {
-							if (activeCard) {
-								useStore.getState().saveSketch(String(activeCard.id), data);
-							}
-						}}
-					/>
-				) : (
-					<MindMap
-						data={activeCard?.mindMapData}
-						onSave={(data) => {
-							if (activeCard) {
-								useStore.getState().saveMindMap(String(activeCard.id), data);
-							}
-						}}
-					/>
-				)}
+				<Suspense fallback={<div className="flex items-center justify-center h-full text-white/20 text-sm">Loading...</div>}>
+					{tab === "canvas" ? (
+						<SketchCanvas
+							data={activeCard?.sketchData}
+							onSave={(data) => {
+								if (activeCard) {
+									useStore.getState().saveSketch(String(activeCard.id), data);
+								}
+							}}
+						/>
+					) : (
+						<MindMap
+							data={activeCard?.mindMapData}
+							onSave={(data) => {
+								if (activeCard) {
+									useStore.getState().saveMindMap(String(activeCard.id), data);
+								}
+							}}
+						/>
+					)}
+				</Suspense>
 			</div>
 		</div>
 	);

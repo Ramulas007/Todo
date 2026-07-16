@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Check } from "lucide-react";
 import BlobBackground from "../components/BlobBackground";
+import BackButton from "../components/BackButton";
 
 interface Props {
 	onNavigate: (path: string) => void;
@@ -63,7 +64,7 @@ const PLANS = [
 
 export default function PricingPage({ onNavigate }: Props) {
 	return (
-		<div className="min-h-screen bg-[#0a0a12] text-white overflow-hidden relative">
+		<div className="min-h-screen bg-[#0a0a12] text-white overflow-x-hidden relative">
 			<BlobBackground />
 			<div className="fixed top-[5%] right-[10%] w-[350px] h-[350px] rounded-full bg-gradient-to-br from-orange-500/10 to-amber-500/8 blur-[120px] pointer-events-none" />
 			<div className="fixed bottom-[10%] left-[5%] w-[300px] h-[300px] rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-500/8 blur-[120px] pointer-events-none" />
@@ -80,6 +81,7 @@ export default function PricingPage({ onNavigate }: Props) {
 							</div>
 							<span className="text-base font-bold text-white">AuraTask</span>
 						</div>
+						<BackButton />
 						<div className="flex items-center gap-6">
 							<button onClick={() => onNavigate("/login")} className="text-sm text-white/50 hover:text-white transition-colors">Log In</button>
 							<button onClick={() => onNavigate("/login")}

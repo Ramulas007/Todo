@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import BlobBackground from "../../components/BlobBackground";
 import AuraSidebar from "./AuraSidebar";
 import AuraHeader from "./AuraHeader";
 import AuraMain from "./AuraMain";
 import AuraRightPanel from "./AuraRightPanel";
 import TaskPanel from "./TaskPanel";
+import SearchPalette from "../../components/SearchPalette";
 import { useStore } from "../../store/useStore";
-import { useNotifications } from "../../hooks/useNotifications";
+import { useBreakpoint } from "../../hooks/useBreakpoint";
 
 export default function AuraLayout() {
 	const selectedCardId = useStore((s) => s.selectedCardId);
@@ -16,10 +18,15 @@ export default function AuraLayout() {
 	const notificationPermission = useStore((s) => s.notificationPermission);
 	const requestNotificationPermission = useStore((s) => s.requestNotificationPermission);
 	const [dismissBanner, setDismissBanner] = useState(false);
+	const [showSearch, setShowSearch] = useState(false);
+	const [showSidebar, setShowSidebar] = useState(false);
+	const [showRightPanel, setShowRightPanel] = useState(false);
+	const bp = useBreakpoint();
+	const isMobile = bp === "mobile";
+	const isTablet = bp === "tablet";
+	const isOverlay = isMobile || isTablet;
+	const prefersReduced = useReducedMotion();
 
-	useNotifications();
-
-	// Check for expired time limits every 10 seconds
 	useEffect(() => {
 		const interval = setInterval(() => {
 			moveExpiredToBacklog();
@@ -27,7 +34,6 @@ export default function AuraLayout() {
 		return () => clearInterval(interval);
 	}, [moveExpiredToBacklog]);
 
-	// Pomodoro timer interval
 	useEffect(() => {
 		if (!pomodoroRunning) return;
 		const interval = setInterval(() => {
@@ -47,22 +53,81 @@ export default function AuraLayout() {
 
 			<div className="relative z-10 h-full flex gap-3 p-3">
 				{/* Left Sidebar */}
-				<AuraSidebar />
+				{isOverlay ? (
+					<AnimatePresence>
+						{showSidebar && (
+							<>
+								<motion.div
+									initial={prefersReduced ? false : { opacity: 0 }}
+									animate={{ opacity: 1 }}
+									exit={prefersReduced ? undefined : { opacity: 0 }}
+									className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+									onClick={() => setShowSidebar(false)}
+								/>
+								<motion.div
+									initial={prefersReduced ? false : { x: "-100%" }}
+									animate={{ x: 0 }}
+									exit={prefersReduced ? undefined : { x: "-100%" }}
+									transition={{ type: "spring", damping: 25, stiffness: 300 }}
+									className="fixed top-0 left-0 bottom-0 z-50 p-3"
+								>
+									<AuraSidebar
+										onSearchOpen={() => { setShowSearch(true); setShowSidebar(false); }}
+										onSettingsOpen={() => {}}
+										onClose={() => setShowSidebar(false)}
+									/>
+								</motion.div>
+							</>
+						)}
+					</AnimatePresence>
+				) : (
+					<AuraSidebar
+						onSearchOpen={() => setShowSearch(true)}
+						onSettingsOpen={() => {}}
+					/>
+				)}
 
 				{/* Center Content */}
 				<div className="flex-1 flex flex-col gap-3 min-w-0">
-					<AuraHeader />
+					<AuraHeader
+						onHamburgerClick={() => setShowSidebar(true)}
+						onPanelClick={() => setShowRightPanel(true)}
+					/>
 					<AuraMain />
 				</div>
 
 				{/* Right Panel */}
-				<AuraRightPanel />
+				{isOverlay ? (
+					<AnimatePresence>
+						{showRightPanel && (
+							<AuraRightPanel onClose={() => setShowRightPanel(false)} />
+						)}
+					</AnimatePresence>
+				) : (
+					<AuraRightPanel />
+				)}
 			</div>
 
 			{/* Slide-in Detail Panel */}
-			{selectedCardId && (
-				<TaskPanel onClose={closePanel} />
-			)}
+			<AnimatePresence>
+				{selectedCardId && (
+					<TaskPanel key={selectedCardId} onClose={closePanel} />
+				)}
+			</AnimatePresence>
+
+			{/* Search Palette */}
+			<AnimatePresence>
+				{showSearch && (
+					<SearchPalette
+						key="search"
+						onClose={() => setShowSearch(false)}
+						onOpenCard={(cardId) => {
+							useStore.getState().openPanel(cardId);
+							setShowSearch(false);
+						}}
+					/>
+				)}
+			</AnimatePresence>
 
 			{/* Notification permission banner */}
 			{notificationPermission === "default" && !dismissBanner && (

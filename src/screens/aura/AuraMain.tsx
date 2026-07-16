@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useStore } from "../../store/useStore";
 import type { Card, Priority } from "../../types/board.types";
 import TaskCard from "./TaskCard";
@@ -30,6 +31,7 @@ export default function AuraMain() {
 	const currentUserId = useStore((s) => s.currentUserId);
 	const addCard = useStore((s) => s.addCard);
 	const activeView = useStore((s) => s.activeView);
+	const prefersReduced = useReducedMotion();
 
 	const board = currentUserId ? boards[`board-${currentUserId}`] : undefined;
 	const cards = board?.cards ?? {};
@@ -122,20 +124,38 @@ export default function AuraMain() {
 		}
 	}
 
-	// ─── Project-specific views ─────────────────────────────────
-	if (activeView === "today") return <TodayView onBackToBoard={() => useStore.getState().setActiveView("all")} />;
-	if (activeView === "work") return <WorkDashboard />;
-	if (activeView === "personal") return <PersonalView />;
-	if (activeView === "ideas") return <IdeasView />;
+	// ─── View content based on activeView ──────────────────────
+	const viewContent = (() => {
+		if (activeView === "today") return <TodayView onBackToBoard={() => useStore.getState().setActiveView("all")} />;
+		if (activeView === "work") return <WorkDashboard />;
+		if (activeView === "personal") return <PersonalView />;
+		if (activeView === "ideas") return <IdeasView />;
+		if (activeView === "backlog") return <BacklogView cards={backlogCards} />;
+		if (activeView === "history") return <HistoryView cards={allCards.filter((c) => !!c.completedAt)} />;
+		return null;
+	})();
 
-	// ─── Backlog view: filtered list, read-only ──────────────────
-	if (activeView === "backlog") {
-		return <BacklogView cards={backlogCards} />;
-	}
-
-	// ─── History view: all completed cards ──────────────────────
-	if (activeView === "history") {
-		return <HistoryView cards={allCards.filter((c) => !!c.completedAt)} />;
+	if (viewContent) {
+		return (
+			<div className="flex-1 overflow-y-auto min-h-0 pr-2">
+				<AnimatePresence mode="wait">
+					<motion.div
+						key={activeView}
+						initial={prefersReduced ? false : { opacity: 0, x: 30, scale: 0.98 }}
+						animate={{ opacity: 1, x: 0, scale: 1 }}
+						exit={prefersReduced ? undefined : { opacity: 0, x: -30, scale: 0.98 }}
+						transition={{
+							type: "spring",
+							damping: 25,
+							stiffness: 300,
+							mass: 0.8,
+						}}
+					>
+						{viewContent}
+					</motion.div>
+				</AnimatePresence>
+			</div>
+		);
 	}
 
 	// ─── All / Project views: split into sections ────────────────
@@ -159,6 +179,19 @@ export default function AuraMain() {
 
 	return (
 		<div className="flex-1 overflow-y-auto min-h-0 pr-2">
+		<AnimatePresence mode="wait">
+		<motion.div
+			key={activeView}
+			initial={prefersReduced ? false : { opacity: 0, x: 30, scale: 0.98 }}
+			animate={{ opacity: 1, x: 0, scale: 1 }}
+			exit={prefersReduced ? undefined : { opacity: 0, x: -30, scale: 0.98 }}
+			transition={{
+				type: "spring",
+				damping: 25,
+				stiffness: 300,
+				mass: 0.8,
+			}}
+		>
 			{/* Filter bar */}
 			{(priorityFilter || tagFilter || allTags.length > 0) && (
 				<div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -253,7 +286,7 @@ export default function AuraMain() {
 				<span className="text-[10px] text-white/30">{todayCards.length} tasks</span>
 			</div>
 			{todayCards.length > 0 ? (
-				<div className="grid grid-cols-2 gap-3 mb-8">
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
 					{todayCards.map((card) => (
 						<TaskCard key={card.id} card={card} selectMode={selectMode} selected={selectedIds.has(card.id)} onSelectToggle={handleToggleSelect} />
 					))}
@@ -277,7 +310,7 @@ export default function AuraMain() {
 						<h2 className="text-sm font-semibold text-red-400/70">Backlog</h2>
 						<span className="text-[10px] text-red-400/40">{backlogCards.length} tasks</span>
 					</div>
-					<div className="grid grid-cols-2 gap-3 mb-8">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
 						{backlogCards.map((card) => (
 							<TaskCard key={card.id} card={card} selectMode={selectMode} selected={selectedIds.has(card.id)} onSelectToggle={handleToggleSelect} />
 						))}
@@ -292,7 +325,7 @@ export default function AuraMain() {
 						<h2 className="text-sm font-semibold text-white/70">Upcoming</h2>
 						<span className="text-[10px] text-white/30">{upcomingCards.length} tasks</span>
 					</div>
-					<div className="grid grid-cols-2 gap-3 mb-8">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
 						{upcomingCards.map((card) => (
 							<TaskCard key={card.id} card={card} selectMode={selectMode} selected={selectedIds.has(card.id)} onSelectToggle={handleToggleSelect} />
 						))}
@@ -325,7 +358,7 @@ export default function AuraMain() {
 							)}
 						</div>
 					</div>
-					<div className="grid grid-cols-2 gap-3 mb-8">
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
 						{completedCards.slice(0, 6).map((card) => (
 							<TaskCard key={card.id} card={card} selectMode={selectMode} selected={selectedIds.has(card.id)} onSelectToggle={handleToggleSelect} />
 						))}
@@ -397,6 +430,8 @@ export default function AuraMain() {
 					</div>
 				</div>
 			)}
+		</motion.div>
+		</AnimatePresence>
 		</div>
 	);
 }
@@ -531,7 +566,7 @@ function BacklogView({ cards }: { cards: Card[] }) {
 
 			{/* Cards */}
 			{filtered.length > 0 ? (
-				<div className="grid grid-cols-2 gap-3">
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 					{filtered.map((card) => {
 						const movedAt = getBacklogMovedAt(card);
 						return (
@@ -750,7 +785,7 @@ function HistoryView({ cards }: { cards: Card[] }) {
 
 			{/* Cards */}
 			{sorted.length > 0 ? (
-				<div className="grid grid-cols-2 gap-3">
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 					{sorted.map((card) => {
 						const isSelected = selectedIds.has(String(card.id));
 						return (

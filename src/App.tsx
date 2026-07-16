@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from './store/useStore'
 import { usePomodoro } from './hooks/usePomodoro'
+import { useNotifications } from './hooks/useNotifications'
 import Homepage from './screens/Homepage'
 import LoginNew from './screens/LoginNew'
 import AdminPanel from './screens/AdminPanel'
@@ -58,6 +59,7 @@ export default function App() {
 	const [showQuickCapture, setShowQuickCapture] = useState(false)
 	const [showSearch, setShowSearch] = useState(false)
 	const pomodoro = usePomodoro()
+	useNotifications()
 
 	useEffect(() => {
 		function handlePopState() {
@@ -167,6 +169,21 @@ export default function App() {
 				users={users}
 				onLogout={handleLogout}
 			/>
+		)
+	}
+
+	if (route === 'admin') {
+		return (
+			<div className="min-h-screen bg-[#0a0a12] flex items-center justify-center">
+				<div className="text-center">
+					<p className="text-6xl font-bold text-white/10 mb-4">403</p>
+					<p className="text-sm text-white/40 mb-4">You don't have permission to access the admin panel.</p>
+					<button type="button" onClick={() => navigate('dashboard')}
+						className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all">
+						Back to Dashboard
+					</button>
+				</div>
+			</div>
 		)
 	}
 

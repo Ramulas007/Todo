@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useStore } from "../../store/useStore";
+import Modal from "../../components/Modal";
+import { useBreakpoint } from "../../hooks/useBreakpoint";
 
 interface Props {
 	onClose: () => void;
@@ -37,6 +40,9 @@ export default function TaskPanel({ onClose }: Props) {
 	const updateCard = useStore((s) => s.updateCard);
 	const deleteCard = useStore((s) => s.deleteCard);
 	const toggleComplete = useStore((s) => s.toggleComplete);
+	const bp = useBreakpoint();
+	const isMobile = bp === "mobile";
+	const prefersReduced = useReducedMotion();
 
 	const board = currentUserId ? boards[`board-${currentUserId}`] : undefined;
 	const card = selectedCardId && board ? board.cards[selectedCardId] : null;
@@ -46,14 +52,12 @@ export default function TaskPanel({ onClose }: Props) {
 	const [initialized, setInitialized] = useState(false);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-	// Initialize drafts when card changes
 	if (card && !initialized) {
 		setDraftTitle(card.title);
 		setDraftDescription(card.description);
 		setInitialized(true);
 	}
 
-	// Reset when card changes
 	useEffect(() => {
 		if (card) {
 			setDraftTitle(card.title);
@@ -99,12 +103,35 @@ export default function TaskPanel({ onClose }: Props) {
 	}
 
 	return (
-		<div className="fixed inset-y-0 right-0 w-[480px] z-50 flex">
+		<motion.div
+			initial={prefersReduced ? false : { opacity: 0 }}
+			animate={{ opacity: 1 }}
+			exit={prefersReduced ? undefined : { opacity: 0 }}
+			transition={{ duration: 0.3 }}
+			className="fixed inset-0 z-50 flex"
+		>
 			{/* Backdrop */}
-			<div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+			<motion.div
+				initial={prefersReduced ? false : { opacity: 0 }}
+				animate={{ opacity: 1 }}
+				exit={prefersReduced ? undefined : { opacity: 0 }}
+				className="flex-1 bg-black/50 backdrop-blur-md"
+				onClick={onClose}
+			/>
 
-			{/* Panel */}
-			<div className="w-[480px] bg-[#121218] border-l border-white/10 flex flex-col animate-slide-in-right">
+			{/* Panel — full-screen on mobile, 480px side panel on desktop */}
+			<motion.div
+				initial={prefersReduced ? false : (isMobile ? { y: "100%" } : { x: "110%", opacity: 0.5 })}
+				animate={isMobile ? { y: 0 } : { x: 0, opacity: 1 }}
+				exit={prefersReduced ? undefined : (isMobile ? { y: "100%" } : { x: "110%", opacity: 0 })}
+				transition={{
+					type: "spring",
+					damping: 28,
+					stiffness: 280,
+					mass: 0.9,
+				}}
+				className={`${isMobile ? "w-full h-full" : "w-[480px]"} bg-[#121218] border-l border-white/10 flex flex-col shadow-2xl shadow-black/40`}
+			>
 				{/* Header */}
 				<div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
 					<button type="button" onClick={onClose} className="text-sm text-white/40 hover:text-white/70 transition-colors">
@@ -154,28 +181,16 @@ export default function TaskPanel({ onClose }: Props) {
 					<div>
 						<div className="flex items-center justify-between mb-3">
 							<p className="text-[10px] uppercase tracking-wider text-white/30 font-medium">Tasks</p>
-							{total > 0 && (
-								<span className="text-[10px] text-white/40">{done}/{total}</span>
-							)}
+							{total > 0 && <span className="text-[10px] text-white/40">{done}/{total}</span>}
 						</div>
-
 						<div className="space-y-1.5">
 							{card.tasks.map((task) => (
 								<div key={task.id} className="flex items-center gap-2.5 py-1.5 group">
-									<input
-										type="checkbox"
-										checked={task.isCompleted}
-										onChange={() => handleToggleTask(task.id)}
-										className="checkbox-custom"
-									/>
-									<span className={`text-sm flex-1 ${task.isCompleted ? "text-white/30 line-through" : "text-white/70"}`}>
-										{task.title}
-									</span>
+									<input type="checkbox" checked={task.isCompleted} onChange={() => handleToggleTask(task.id)} className="checkbox-custom" />
+									<span className={`text-sm flex-1 ${task.isCompleted ? "text-white/30 line-through" : "text-white/70"}`}>{task.title}</span>
 								</div>
 							))}
 						</div>
-
-						{/* Add task */}
 						<div className="mt-3 flex gap-2">
 							<input
 								type="text"
@@ -185,12 +200,8 @@ export default function TaskPanel({ onClose }: Props) {
 								placeholder="Add a task..."
 								className="flex-1 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-white/20 outline-none focus:border-white/20 transition-colors"
 							/>
-							<button
-								type="button"
-								onClick={handleAddTask}
-								disabled={!newTaskTitle.trim()}
-								className="px-3 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-xs font-medium text-indigo-400 hover:bg-indigo-500/30 disabled:opacity-40 transition-colors"
-							>
+							<button type="button" onClick={handleAddTask} disabled={!newTaskTitle.trim()}
+								className="px-3 py-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-xs font-medium text-indigo-400 hover:bg-indigo-500/30 disabled:opacity-40 transition-colors">
 								Add
 							</button>
 						</div>
@@ -216,22 +227,18 @@ export default function TaskPanel({ onClose }: Props) {
 							<div className="flex items-center justify-between">
 								<span className="text-xs text-white/40">Due date</span>
 								<div className="flex items-center gap-2">
-									<input
-										type="date"
-										value={card.dueDate ?? ""}
+									<input type="date" value={card.dueDate ?? ""}
 										onChange={(e) => {
-											const date = e.target.value
+											const date = e.target.value;
 											updateCard(card.id, {
 												dueDate: date || undefined,
 												dueTime: date && !card.dueTime ? "23:59" : card.dueTime,
-											})
+											});
 										}}
 										className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white outline-none [color-scheme:dark]"
 									/>
 									{card.dueDate && (
-										<input
-											type="time"
-											value={card.dueTime ?? "23:59"}
+										<input type="time" value={card.dueTime ?? "23:59"}
 											onChange={(e) => updateCard(card.id, { dueTime: e.target.value || "23:59" })}
 											className="rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white outline-none [color-scheme:dark]"
 										/>
@@ -263,12 +270,9 @@ export default function TaskPanel({ onClose }: Props) {
 										<option value="60">60 min</option>
 									</select>
 									{card.timeLimit && card.timeLimitStartedAt && (
-										<button
-											type="button"
+										<button type="button"
 											onClick={() => updateCard(card.id, { timeLimitStartedAt: new Date().toISOString() })}
-											className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
-											title="Reset timer"
-										>
+											className="text-[10px] text-white/30 hover:text-white/60 transition-colors" title="Reset timer">
 											↺
 										</button>
 									)}
@@ -297,7 +301,6 @@ export default function TaskPanel({ onClose }: Props) {
 								const msAgo = Date.now() - new Date(event.timestamp).getTime();
 								const hrs = Math.floor(msAgo / 3600000);
 								const time = hrs < 1 ? "Just now" : hrs < 24 ? `${hrs}h ago` : `${Math.floor(hrs / 24)}d ago`;
-
 								return (
 									<div key={i} className="flex items-start gap-2 text-xs text-white/40">
 										<span className="mt-0.5">•</span>
@@ -309,13 +312,12 @@ export default function TaskPanel({ onClose }: Props) {
 						</div>
 					</div>
 				</div>
-			</div>
+			</motion.div>
 
 			{/* Delete Confirmation Modal */}
-			{showDeleteConfirm && (
-				<div className="fixed inset-0 z-[60] flex items-center justify-center">
-					<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
-					<div className="relative w-[380px] rounded-2xl bg-[#1a1d2e] border border-white/10 p-6 shadow-2xl">
+			<AnimatePresence>
+				{showDeleteConfirm && (
+					<Modal titleId="delete-card-confirm" onClose={() => setShowDeleteConfirm(false)}>
 						<div className="flex items-center gap-3 mb-4">
 							<div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/20 flex items-center justify-center">
 								<svg className="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none">
@@ -331,24 +333,18 @@ export default function TaskPanel({ onClose }: Props) {
 							This will permanently delete this card and all its tasks. Your dashboard stats will be adjusted accordingly.
 						</p>
 						<div className="flex items-center gap-2 justify-end">
-							<button
-								type="button"
-								onClick={() => setShowDeleteConfirm(false)}
-								className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all"
-							>
+							<button type="button" onClick={() => setShowDeleteConfirm(false)}
+								className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white/50 hover:text-white hover:bg-white/10 transition-all">
 								Cancel
 							</button>
-							<button
-								type="button"
-								onClick={handleDelete}
-								className="px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-xs font-medium text-red-400 hover:bg-red-500/30 transition-all"
-							>
+							<button type="button" onClick={handleDelete}
+								className="px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-xs font-medium text-red-400 hover:bg-red-500/30 transition-all">
 								Delete
 							</button>
 						</div>
-					</div>
-				</div>
-			)}
-		</div>
+					</Modal>
+				)}
+			</AnimatePresence>
+		</motion.div>
 	);
 }

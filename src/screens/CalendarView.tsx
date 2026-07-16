@@ -157,7 +157,7 @@ export default function CalendarView({ onBackToBoard }: Props) {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#0a0a12] text-white relative overflow-hidden">
+		<div className="min-h-screen bg-[#0a0a12] text-white relative overflow-x-hidden">
 			<BlobBackground />
 			<div className="fixed top-[5%] right-[10%] w-[350px] h-[350px] rounded-full bg-gradient-to-br from-orange-500/10 to-amber-500/8 blur-[120px] pointer-events-none" />
 			<div className="fixed bottom-[10%] left-[5%] w-[300px] h-[300px] rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-500/8 blur-[120px] pointer-events-none" />

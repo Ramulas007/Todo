@@ -1,6 +1,4 @@
-import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import gsap from "gsap";
 import { ArrowRight, Bell, Zap, RefreshCw } from "lucide-react";
 import BlobBackground from "../components/BlobBackground";
 
@@ -9,34 +7,13 @@ interface Props {
 }
 
 export default function Homepage({ onNavigate }: Props) {
-	const blob1Ref = useRef<HTMLDivElement>(null);
-	const blob2Ref = useRef<HTMLDivElement>(null);
-	const blob3Ref = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		if (blob1Ref.current) {
-			gsap.to(blob1Ref.current, { y: "+=40", x: "+=20", duration: 4, yoyo: true, repeat: -1, ease: "sine.inOut" });
-		}
-		if (blob2Ref.current) {
-			gsap.to(blob2Ref.current, { y: "-=30", x: "-=25", duration: 5, yoyo: true, repeat: -1, ease: "sine.inOut", delay: 1 });
-		}
-		if (blob3Ref.current) {
-			gsap.to(blob3Ref.current, { y: "+=35", x: "-=15", duration: 6, yoyo: true, repeat: -1, ease: "sine.inOut", delay: 2 });
-		}
-	}, []);
-
 	return (
-		<div className="min-h-screen bg-[#0a0a12] text-white overflow-hidden relative">
+		<div className="min-h-screen bg-[#0a0a12] text-white overflow-x-hidden relative">
 			<BlobBackground />
-
-			{/* GSAP floating blobs */}
-			<div ref={blob1Ref} className="fixed top-[5%] right-[10%] w-[400px] h-[400px] rounded-full bg-gradient-to-br from-orange-500/15 to-amber-500/10 blur-[120px] pointer-events-none" />
-			<div ref={blob2Ref} className="fixed bottom-[10%] left-[5%] w-[350px] h-[350px] rounded-full bg-gradient-to-br from-blue-500/15 to-indigo-500/10 blur-[120px] pointer-events-none" />
-			<div ref={blob3Ref} className="fixed top-[40%] left-[35%] w-[300px] h-[300px] rounded-full bg-gradient-to-br from-purple-500/10 to-pink-500/8 blur-[120px] pointer-events-none" />
 
 			<div className="relative z-10">
 				{/* ─── Navbar ──────────────────────────────────────── */}
-				<nav className="px-8 py-5">
+				<nav className="px-6 sm:px-8 py-5">
 					<div className="max-w-7xl mx-auto flex items-center justify-between">
 						<div className="flex items-center gap-4">
 							<div className="flex items-center gap-2.5 cursor-pointer" onClick={() => onNavigate("/")}>
@@ -52,7 +29,7 @@ export default function Homepage({ onNavigate }: Props) {
 							</button>
 						</div>
 
-						<div className="flex items-center gap-6">
+						<div className="hidden sm:flex items-center gap-6">
 							<button onClick={() => onNavigate("/features")} className="text-sm text-white/50 hover:text-white transition-colors">Features</button>
 							<button onClick={() => onNavigate("/pricing")} className="text-sm text-white/50 hover:text-white transition-colors">Pricing</button>
 							<button onClick={() => onNavigate("/about")} className="text-sm text-white/50 hover:text-white transition-colors">About</button>
@@ -66,15 +43,15 @@ export default function Homepage({ onNavigate }: Props) {
 				</nav>
 
 				{/* ─── Hero Section ────────────────────────────────── */}
-				<section className="max-w-7xl mx-auto px-8 pt-16 pb-12">
-					<div className="grid grid-cols-2 gap-12 items-center">
+				<section className="max-w-7xl mx-auto px-6 sm:px-8 pt-16 pb-12">
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
 						{/* Left: Text */}
 						<motion.div
 							initial={{ opacity: 0, x: -30 }}
 							animate={{ opacity: 1, x: 0 }}
 							transition={{ duration: 0.8 }}
 						>
-							<h1 className="text-5xl lg:text-6xl font-bold text-white leading-[1.1] mb-6">
+							<h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-white leading-[1.1] mb-6">
 								Master Your Day with{" "}
 								<br />
 								<span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
@@ -160,8 +137,8 @@ export default function Homepage({ onNavigate }: Props) {
 				</section>
 
 				{/* ─── Feature Cards ───────────────────────────────── */}
-				<section className="max-w-7xl mx-auto px-8 pb-16">
-					<div className="grid grid-cols-3 gap-5">
+				<section className="max-w-7xl mx-auto px-6 sm:px-8 pb-16">
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
 						{[
 							{ icon: Bell, title: "Smart Notifications", desc: "Get timely reminders that keep you on track without overwhelming your workflow.", color: "from-blue-500/20 to-indigo-500/20", iconColor: "text-blue-400" },
 							{ icon: Zap, title: "Pomodoro Integration", desc: "Focus timer built in. Start a session with one click and maintain your productivity streak.", color: "from-amber-500/20 to-orange-500/20", iconColor: "text-amber-400" },
@@ -186,7 +163,7 @@ export default function Homepage({ onNavigate }: Props) {
 				</section>
 
 				{/* ─── Footer ──────────────────────────────────────── */}
-				<footer className="px-8 py-6 border-t border-white/5">
+				<footer className="px-6 sm:px-8 py-6 border-t border-white/5">
 					<div className="max-w-7xl mx-auto flex items-center justify-between">
 						<p className="text-xs text-white/30">© Copyright Marco Antonio · Built by Yudis</p>
 						<div className="flex items-center gap-4">

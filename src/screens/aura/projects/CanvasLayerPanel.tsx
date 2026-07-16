@@ -21,8 +21,8 @@ export default function CanvasLayerPanel({
 }: Props) {
 	return (
 		<div className={`${floating
-			? "absolute top-2 right-2 z-20 w-[180px] rounded-xl bg-[#161922]/95 backdrop-blur-sm border border-white/[0.06] p-3 max-h-[300px] flex flex-col"
-			: "w-[180px] shrink-0 rounded-xl bg-[#161922] border border-white/[0.06] p-3 flex flex-col"
+			? "absolute top-2 right-2 z-20 w-[160px] sm:w-[180px] rounded-xl bg-[#161922]/95 backdrop-blur-sm border border-white/[0.06] p-3 max-h-[300px] flex flex-col"
+			: "w-[160px] sm:w-[180px] shrink-0 rounded-xl bg-[#161922] border border-white/[0.06] p-3 flex flex-col"
 		}`}>
 			<div className="flex items-center justify-between mb-2">
 				<p className="text-[10px] uppercase tracking-wider text-white/30 font-medium">Layers</p>
